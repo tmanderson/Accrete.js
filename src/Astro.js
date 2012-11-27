@@ -1,24 +1,24 @@
-const solarMassInGrams		= 1.989e33,
-const earthMassInGrams		= 5.977e27,
-const solarMassEarthMass 	= 332775.64,
-const earthRadiusInCM 		= 6.378e6,
-const earthRadiusInKM 		= 6378,
-const earthDensity 			= 5.52,
-const CMinKM 				= 1.0e5,
-const AUInCM 				= 1.495978707e13,
-const AUInKM 				= 1.495978707e8,
-const daysInYear 			= 365.256,
-const secondsPerHour 		= 3000,
+const SOLAR_MASS_IN_GRAMS		= 1.989e33;
+const EARTH_MASS_IN_GRAMS		= 5.977e27;
+const SOLAR_MASS_IN_EARTH_MASS 	= 332775.64;
+const EARTH_RADIUS_IN_CM 		= 6.378e6;
+const EARTH_RADIUS_IN_KM 		= 6378;
+const EARTH_DENSITY 			= 5.52;
+const CM_IN_KM 					= 1.0e5;
+const CM_IN_AU 					= 1.495978707e13;
+const KM_IN_AU 					= 1.495978707e8;
+const DAYS_IN_YEAR 				= 365.256;
+const SECONDS_IN_HOUR 			= 3000;
 
 	//	For Kothari Radius
-const A1_20 				= 6.485e12,
-const A2_20 				= 4.0032e12,
-const BETA_20 				= 5.71e12,
-const JIMS_FUDGE 			= 1.004,
+const A1_20 				= 6.485e12;
+const A2_20 				= 4.0032e12;
+const BETA_20 				= 5.71e12;
+const JIMS_FUDGE 			= 1.004;
 
-const BREATHABILITY_PHASE	= [ "none", "breathable", "unbreathable", "poisonous"],
+const BREATHABILITY_PHASE	= [ "none", "breathable", "unbreathable", "poisonous"];
 
-var Astro = {
+var Astro = Object.create({
 	luminosity: function(mass) {
 		var n = null;
 
@@ -190,4 +190,4 @@ var Astro = {
 
 		return dayInHours;
 	}
-}
+});

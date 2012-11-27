@@ -58,7 +58,7 @@ Planetismal.prototype = Object.create({
 	},
 
 	getEarthMass: function() {
-		return this.mass * Astro.solarMassEarthMass;
+		return this.mass * SOLAR_MASS_IN_EARTH_MASS;
 	},
 
 	print: function() {

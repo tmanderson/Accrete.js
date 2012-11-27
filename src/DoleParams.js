@@ -1,4 +1,4 @@
-var DoleParams = {
+var DoleParams = Object.create({
 	B: 1.2e-5, 					// For critical mass
 
 	K: 50, 						// Dust/gas ratio
@@ -101,4 +101,4 @@ var DoleParams = {
 	randomEccentricity: function() {
 		return (1 - Math.pow(Math.random(), this.eccentricityCoeff));
 	}
-}
+});
