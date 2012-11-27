@@ -1,5 +1,5 @@
 # ACCRETE.js
-### Create planetary systems in JavaScript. In the browser, or on server!
+### Planetary system creation simulation in the browser, or on server.
 
 Accrete.js is a port of the awesome planetary system simulation algorithm, [Accrete](http://www.rand.org/pubs/papers/P4226.html) to JavaScript. Originally published* and partly programmed (via FORTRAN) by the amazing Stephen H. Dole. Almost a decade later Carl Sagan and Richard Isaacson refined Dole's model -- which shortly thereafter was also implemented in FORTRAN, and again elaborately and academically published by Martin Fogg.
 
@@ -31,6 +31,6 @@ Nothing here could have ever (ever, ever, ever) been done without the following 
 - Martin Fogg
 - Matt Burdick
 - Ian Burrell
-- The many brilliant minds that have contributed both before and after their knowlege and insights into our awe-inspiring universe.
+- The many brilliant minds that have contributed their knowlege to, and insights into our awe-inspiring universe.
 
 * The original Dole Paper can be [viewed here](http://www.rand.org/pubs/papers/2005/P4226.pdf).
