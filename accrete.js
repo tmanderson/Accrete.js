@@ -10,6 +10,8 @@ const KM_IN_AU 					= 1.495978707e8;
 const DAYS_IN_YEAR 				= 365.256;
 const SECONDS_IN_HOUR 			= 3000;
 
+const PROTOPLANET_MASS 			= 1e-15; //	Units of solar masses
+
 	//	For Kothari Radius
 const A1_20 				= 6.485e12;
 const A2_20 				= 4.0032e12;
@@ -297,50 +299,127 @@ var DoleParams = Object.create({
 	}
 });
 
-function DustBand(innerLimit, outerLimit, dustPresent, gasPresent) {
-	this.inner 	= innerLimit;
-	this.outer 	= outerLimit;
-	this.dust 	= dustPresent;
-	this.gas 	= gasPresent;
-
-	if(this.dust === undefined) this.dust = true;
-	if(this.gas === undefined) this.gas = true;
-
-	// this.print();
+function DustBands(inner, outer) {
+	this.addBand(inner, outer);
 }
 
-DustBand.prototype = Object.create({
-	//	Inner edge in AU
-	inner 	: null,
-	//	Outer edge in AU
-	outer 	: null,
-	dust 	: true,
-	gas		: true,
-	next 	: null,
+DustBands.prototype = Object.create({
+	
+	bands: [],
 
-	print: function() {
-		console.log("== DUST BAND ==");
-		console.log("Inner: " + this.inner);
-		console.log("Outer: " + this.outer);
-		console.log("Dust:  " + this.dust);
-		console.log("Gas:   " + this.gas);
+	dustAvailable: function(inside, outside) {
+		var curr 		= this.dustHead,
+			dustHere	= false;
+
+		this.each(function(band) {
+			if(band && band.inner < outside) dustHere = band.dust;
+		});
+
+		if(!curr) return false;
+
+		return dustHere;
+	},
+
+	updateLanes: function(min, max, usedGas) {
+		this.each(function(band, i) {
+			var newGas 	= band.gas && !usedGas,
+				first	= null,
+				second	= null,
+				next 	= band;
+
+			if(band.inner < min && band.outer > max) {
+				first 	= this.addBand(min, max, false, newGas, i);
+				second 	= this.addBand(max, band.outer, band.dust, band.gas, i + 1);
+
+				band.outer = min;
+
+				next = second;
+			}
+			else if(band.inner < max && band.outer > max) {
+				first = this.addBand(max, band.outer, band.dust, band.gas, i);
+
+				band.outer = max;
+				band.dust = false;
+				band.gas = newGas;
+				next = first;
+			}
+			else if(band.inner < min && band.outer > min) {
+				first = this.addBand(min, band.outer, false, newGas, i);
+
+				band.outer = min;
+				next = first;
+			}
+			else if(band.inner >= min && band.outer <= max) {
+				band.dust = false;
+				band.gas = newGas;
+				next = band;
+			}
+			else if(band.inner > max || band.outer < min) {
+				next = band;
+			}
+
+		})
+	},
+
+	dustRemaining: function(innerBound, outerBound) {
+		var dustLeft = false;
+
+		this.each(function(band, i) {
+			if(band.dust && band.outer >= innerBound && band.inner <= outerBound) {
+				dustLeft = true;
+			}
+		});
+
+		return dustLeft;
+	},
+
+	compressLanes: function() {
+		this.each(function(band, i) {
+			var next = this.bands[i + 1];
+
+			if(next && band.dust === next.dust && band.gas === next.gas) {
+				this.bands.splice(i + 1, 1);
+			}
+		})
+	},
+
+	//	OPTIONAL: after (after which indice to insert)
+	addBand: function(min, max, dust, gas, after) {
+		var band = { 
+			inner 	: min, 
+			outer 	: max, 
+			dust 	: dust || true, 
+			gas 	: gas  || true
+		}
+
+		if(after) {
+			var first 	= this.bands.slice(0, after + 1),
+				last	= this.bands.slice(after + 1);
+
+			this.bands = first.concat(band, last);
+		} else {
+			this.bands.push(band);	
+		}
+
+		return band;
+	},
+
+	each: function(fn) {
+		for(var i = 0; i < this.bands.length; i++) {
+			fn.call(this, this.bands[i], i);
+		}
 	}
+
 });
 function Planetismal(a, e, m, g) {
 	this.axis 		= a;
 	this.eccn 		= e;
-	this.mass 		= m || Planetismal.protoplanetMass;
+	this.mass 		= m || PROTOPLANET_MASS;
 	this.gasGiant 	= g || false;
 	// console.log(a, e)
 	
 	// this.print();
 }
-
-Planetismal.randomPlanetismal = function(inner, outer) {
-	return new Planetismal((Math.random() * outer) + inner, DoleParams.randomEccentricity());
-}
-
-Planetismal.protoplanetMass = 1e-15; // Units of solar masses
 
 Planetismal.prototype = Object.create({
 	axis 			: 0, 		// Semi-major axis in AU
@@ -407,6 +486,8 @@ function Accrete(stellMass, stellLum) {
 	this.outerBound 		= DoleParams.outermostPlanet(this.stellarMass);
 	this.innerDust 			= DoleParams.innerDustLimit(this.stellarMass);
 	this.outerDust 			= DoleParams.outerDustLimit(this.stellarMass);
+
+	this.dustBands 			= new DustBands(this.innerDust, this.outerDust);
 }
 
 Accrete.prototype = Object.create({
@@ -418,28 +499,27 @@ Accrete.prototype = Object.create({
 	distributePlanets: function() {
 		var dustLeft 	= true;
 
-		this.dustHead 	= new DustBand(this.innerDust, this.outerDust);
 		this.planetHead = null;
 
 		while(dustLeft) {
 			// this.log();
 
-			var tismal = Planetismal.randomPlanetismal(this.innerBound, this.outerBound);
+			var tismal = new Planetismal((Math.random() * this.outerBound) + this.innerBound, DoleParams.randomEccentricity());
 			
 			this.dustDensity 	= DoleParams.dustDensity(this.stellarMass, tismal.axis);
 			this.criticalMass 	= tismal.criticalMass(this.stellarLuminosity);
 			
 			var mass = this.accreteDust(tismal);
 			
-			if((mass != 0.0) && (mass != Planetismal.protoplanetMass)) {
+			if((mass != 0.0) && (mass != PROTOPLANET_MASS)) {
 			
 				if(mass >= this.criticalMass) tismal.gasGiant = true;
 
-				this.updateDustLanes(tismal.innerSweptLimit(), tismal.outerSweptLimit(), tismal.gasGiant);
-				// console.log(tismal.innerSweptLimit(), tismal.outerSweptLimit())	
-				dustLeft = this.checkDustLeft();
+				this.dustBands.updateLanes(tismal.innerSweptLimit(), tismal.outerSweptLimit(), tismal.gasGiant);
 				
-				this.compressDustLanes();
+				dustLeft = this.dustBands.dustRemaining(this.innerBound, this.outerBound);
+				
+				this.dustBands.compressLanes();
 				
 				if(!this.coalescePlanetismals(tismal)) this.insertPlanet(tismal);
 			}
@@ -449,31 +529,14 @@ Accrete.prototype = Object.create({
 			curr 	= this.planetHead;
 
 		while(curr = curr.next) planets.push(curr);
-
+		
 		return planets;
-	},
-
-	dustAvailable: function(inside, outside) {
-		var curr 		= this.dustHead,
-			dustHere 	= false;
-
-		while(curr && curr.outer < inside) curr = curr.next;
-
-		if(!curr) return false;
-
-		if(curr) dustHere = curr.dust;
-
-		while(curr && curr.inner < outside) {
-			curr = curr.next;
-			dustHere = dustHere || curr.dust;
-		}
-
-		return dustHere;
 	},
 
 	//	Planetismal : nucleus
 	accreteDust: function(nucleus) {
-		var newMass = nucleus.mass;
+		var that 	= this,
+			newMass = nucleus.mass;
 
 		//	TODO: 	Make sure that turning the original DO/WHILE
 		//			into a while didn't affect the outcome
@@ -481,9 +544,9 @@ Accrete.prototype = Object.create({
 			nucleus.mass = newMass;
 			newMass = 0;
 			
-			for(var curr = this.dustHead; curr; curr = curr.next) {
-				newMass += this.collectDust(nucleus, curr);
-			}
+			this.dustBands.each(function(band, i) {
+				newMass += that.collectDust(nucleus, band);
+			});
 		}
 		while(newMass - nucleus.mass > 0.0001 * nucleus.mass);
 
@@ -525,92 +588,6 @@ Accrete.prototype = Object.create({
 			volume	= term1 * nucleus.reducedMargin() * width * term2;
 		
 		return volume * density;
-	},
-
-	updateDustLanes: function(min, max, usedGas) {
-		for(var curr = this.dustHead; curr; curr = curr.next) {
-			var newGas 	= curr.gas && !usedGas,
-				first	= null,
-				second	= null,
-				next 	= curr;
-			
-			//	Case 1: Wide
-			if(curr.inner < min && curr.outer > max) {
-				console.log('WIDE')
-				first 	= new DustBand(min, max, false, newGas);
-				second 	= new DustBand(max, curr.outer, curr.dust, curr.gas);
-
-				first.next = second;
-				second.next = curr.next;
-				
-				curr.next = first;
-				curr.outer = min;
-
-				next = second;
-			}
-			//	Case 2: Out
-			else if(curr.inner < max && curr.outer > max) {
-				console.log('OUT')
-				first = new DustBand(max, curr.outer, curr.dust, curr.gas);
-
-				first.next = curr.next;
-				curr.next = first;
-				curr.outer = max;
-				curr.dust = false;
-				curr.gas = newGas;
-				next = first;
-			}
-			// 	Case 3: In
-			else if(curr.inner < min && curr.outer > min) {
-				console.log('IN')
-				first = new DustBand(min, curr.outer, false, newGas);
-				first.next = curr.next;
-				curr.next = first;
-				curr.outer = min;
-				next = first;
-			}
-			//	Case 4: Narrow
-			else if(curr.inner >= min && curr.outer <= max) {
-				console.log('NARROW')
-				curr.dust = false;
-				curr.gas = newGas;
-				next = curr;
-			}
-			//	Case 5: Not
-			else if(curr.inner > max || curr.outer < min) {
-				console.log('NOTHING')
-				next = curr;
-			}
-
-			//	Why is this doing this???
-			curr = next;
-		}
-	},
-
-	checkDustLeft: function() {
-		var dustLeft = false;
-
-		for(var curr = this.dustHead; curr; curr = curr.next) {
-			if(curr.dust && 
-				curr.outer >= this.innerBound && 
-					curr.inner <= this.outerBound) dustLeft = true;
-		}
-	
-		return dustLeft;
-	},
-
-	compressDustLanes: function() {
-		var next = null;
-
-		for(var curr = this.dustHead; curr; curr = next) {
-			next = curr.next;
-
-			if(next && curr.dust === next.dust && curr.gas === next.gas) {
-				curr.outer = next.outer;
-				curr.next = next.next;
-				next = curr;
-			} 
-		}
 	},
 
 	coalescePlanetismals: function(tismal) {
@@ -700,3 +677,4 @@ Accrete.prototype = Object.create({
 		}
 	}
 });
+module.exports = Accrete;

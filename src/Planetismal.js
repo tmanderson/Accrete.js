@@ -1,18 +1,12 @@
 function Planetismal(a, e, m, g) {
 	this.axis 		= a;
 	this.eccn 		= e;
-	this.mass 		= m || Planetismal.protoplanetMass;
+	this.mass 		= m || PROTOPLANET_MASS;
 	this.gasGiant 	= g || false;
 	// console.log(a, e)
 	
 	// this.print();
 }
-
-Planetismal.randomPlanetismal = function(inner, outer) {
-	return new Planetismal((Math.random() * outer) + inner, DoleParams.randomEccentricity());
-}
-
-Planetismal.protoplanetMass = 1e-15; // Units of solar masses
 
 Planetismal.prototype = Object.create({
 	axis 			: 0, 		// Semi-major axis in AU

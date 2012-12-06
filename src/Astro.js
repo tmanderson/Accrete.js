@@ -10,6 +10,8 @@ const KM_IN_AU 					= 1.495978707e8;
 const DAYS_IN_YEAR 				= 365.256;
 const SECONDS_IN_HOUR 			= 3000;
 
+const PROTOPLANET_MASS 			= 1e-15; //	Units of solar masses
+
 	//	For Kothari Radius
 const A1_20 				= 6.485e12;
 const A2_20 				= 4.0032e12;

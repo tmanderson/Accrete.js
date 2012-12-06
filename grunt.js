@@ -11,11 +11,11 @@ module.exports = function(grunt) {
 				src : [
 					'src/Astro.js',
 					'src/DoleParams.js',
-					'src/DustBand.js',
+					'src/DustBands.js',
 					'src/Planetismal.js',
 					'src/Accrete.js'
 				],
-				dest: './accrete.js'	
+				dest: './accrete.js'
 			}	
 		}
 	});
