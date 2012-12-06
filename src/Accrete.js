@@ -6,24 +6,22 @@ function Accrete(stellMass, stellLum) {
 	this.outerBound 		= DoleParams.outermostPlanet(this.stellarMass);
 	this.innerDust 			= DoleParams.innerDustLimit(this.stellarMass);
 	this.outerDust 			= DoleParams.outerDustLimit(this.stellarMass);
-
-	this.dustBands 			= new DustBands(this.innerDust, this.outerDust);
 }
 
 Accrete.prototype = Object.create({
 	criticalMass	: 0,
 	dustDensity 	: 0,
-	dustHead		: 0,
 	planetHead 		: 0,
+	dustBands		: null,
 
 	distributePlanets: function() {
 		var dustLeft 	= true;
 
 		this.planetHead = null;
 
-		while(dustLeft) {
-			// this.log();
+		this.dustBands = new DustBands(this.innerDust, this.outerDust);
 
+		while(dustLeft) {
 			var tismal = new Planetismal((Math.random() * this.outerBound) + this.innerBound, DoleParams.randomEccentricity());
 			
 			this.dustDensity 	= DoleParams.dustDensity(this.stellarMass, tismal.axis);
@@ -49,7 +47,7 @@ Accrete.prototype = Object.create({
 			curr 	= this.planetHead;
 
 		while(curr = curr.next) planets.push(curr);
-		console.log(planets)
+			
 		return planets;
 	},
 
@@ -93,12 +91,7 @@ Accrete.prototype = Object.create({
 			sweptWidth 	= sweptOuter - sweptInner,
 			outside 	= sweptOuter - band.outer,
 			inside 		= band.inner - sweptInner;
-		// console.log("COLLECTION...")
-		// console.log("Dust Density: " + dustDensity);
-		// console.log("Mass Density: " + massDensity);
-		// console.log("sweptWidth  : " + sweptWidth);
-		// console.log("Outside 	 : " + outside);
-		// console.log("Inside 	 : " + inside);	
+		
 		if(outside < 0) outside = 0;
 		if(inside < 0) 	inside 	= 0;
 
@@ -173,27 +166,5 @@ Accrete.prototype = Object.create({
 			}
 		}
 
-	},
-
-	log: function() {
-		console.log("Stellar mass: " + this.stellarMass);
-		console.log("Stellar Luminosity: " + this.stellarLuminosity);
-		console.log("Bounds: " + this.innerBound + " " + this.outerBound);
-		console.log("Dust: " + this.innerDust + " " + this.outerDust);
-	},
-
-	printDusts: function(output) {
-		for(var curr = this.dustHead; curr; curr = curr.next) {
-			console.log(output);
-		}
-	},
-
-	printPlanets: function(output, planets) {
-		var curr = this.planetHead;
-
-		while(curr && curr.next) {
-			curr.print();
-			curr = curr.next;
-		}
 	}
 });

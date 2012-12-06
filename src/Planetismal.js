@@ -3,9 +3,6 @@ function Planetismal(a, e, m, g) {
 	this.eccn 		= e;
 	this.mass 		= m || PROTOPLANET_MASS;
 	this.gasGiant 	= g || false;
-	// console.log(a, e)
-	
-	// this.print();
 }
 
 Planetismal.prototype = Object.create({
@@ -53,15 +50,6 @@ Planetismal.prototype = Object.create({
 
 	getEarthMass: function() {
 		return this.mass * SOLAR_MASS_IN_EARTH_MASS;
-	},
-
-	print: function() {
-		console.log("== PLANETISMAL ==");
-		console.log("Axis        :  " + this.axis);
-		console.log("Eccentricity:  " + this.eccn);
-		console.log("Mass 		 :  " + this.mass);
-		console.log("Earth Masses:  " + this.getEarthMass());
-		console.log("Gas Giant 	 :  " + this.gasGiant);
-		console.log("");
 	}
+	
 });

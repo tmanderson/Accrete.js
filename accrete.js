@@ -393,6 +393,8 @@ DustBands.prototype = Object.create({
 		}
 
 		if(after) {
+			//	This is extremely bad for performance
+			//	Make this better
 			var first 	= this.bands.slice(0, after + 1),
 				last	= this.bands.slice(after + 1);
 
@@ -416,9 +418,6 @@ function Planetismal(a, e, m, g) {
 	this.eccn 		= e;
 	this.mass 		= m || PROTOPLANET_MASS;
 	this.gasGiant 	= g || false;
-	// console.log(a, e)
-	
-	// this.print();
 }
 
 Planetismal.prototype = Object.create({
@@ -466,17 +465,8 @@ Planetismal.prototype = Object.create({
 
 	getEarthMass: function() {
 		return this.mass * SOLAR_MASS_IN_EARTH_MASS;
-	},
-
-	print: function() {
-		console.log("== PLANETISMAL ==");
-		console.log("Axis        :  " + this.axis);
-		console.log("Eccentricity:  " + this.eccn);
-		console.log("Mass 		 :  " + this.mass);
-		console.log("Earth Masses:  " + this.getEarthMass());
-		console.log("Gas Giant 	 :  " + this.gasGiant);
-		console.log("");
 	}
+	
 });
 function Accrete(stellMass, stellLum) {
 	this.stellarMass 		= stellMass || 1;
@@ -486,24 +476,22 @@ function Accrete(stellMass, stellLum) {
 	this.outerBound 		= DoleParams.outermostPlanet(this.stellarMass);
 	this.innerDust 			= DoleParams.innerDustLimit(this.stellarMass);
 	this.outerDust 			= DoleParams.outerDustLimit(this.stellarMass);
-
-	this.dustBands 			= new DustBands(this.innerDust, this.outerDust);
 }
 
 Accrete.prototype = Object.create({
 	criticalMass	: 0,
 	dustDensity 	: 0,
-	dustHead		: 0,
 	planetHead 		: 0,
+	dustBands		: null,
 
 	distributePlanets: function() {
 		var dustLeft 	= true;
 
 		this.planetHead = null;
 
-		while(dustLeft) {
-			// this.log();
+		this.dustBands = new DustBands(this.innerDust, this.outerDust);
 
+		while(dustLeft) {
 			var tismal = new Planetismal((Math.random() * this.outerBound) + this.innerBound, DoleParams.randomEccentricity());
 			
 			this.dustDensity 	= DoleParams.dustDensity(this.stellarMass, tismal.axis);
@@ -529,7 +517,7 @@ Accrete.prototype = Object.create({
 			curr 	= this.planetHead;
 
 		while(curr = curr.next) planets.push(curr);
-		
+			
 		return planets;
 	},
 
@@ -573,12 +561,7 @@ Accrete.prototype = Object.create({
 			sweptWidth 	= sweptOuter - sweptInner,
 			outside 	= sweptOuter - band.outer,
 			inside 		= band.inner - sweptInner;
-		// console.log("COLLECTION...")
-		// console.log("Dust Density: " + dustDensity);
-		// console.log("Mass Density: " + massDensity);
-		// console.log("sweptWidth  : " + sweptWidth);
-		// console.log("Outside 	 : " + outside);
-		// console.log("Inside 	 : " + inside);	
+		
 		if(outside < 0) outside = 0;
 		if(inside < 0) 	inside 	= 0;
 
@@ -653,28 +636,5 @@ Accrete.prototype = Object.create({
 			}
 		}
 
-	},
-
-	log: function() {
-		console.log("Stellar mass: " + this.stellarMass);
-		console.log("Stellar Luminosity: " + this.stellarLuminosity);
-		console.log("Bounds: " + this.innerBound + " " + this.outerBound);
-		console.log("Dust: " + this.innerDust + " " + this.outerDust);
-	},
-
-	printDusts: function(output) {
-		for(var curr = this.dustHead; curr; curr = curr.next) {
-			console.log(output);
-		}
-	},
-
-	printPlanets: function(output, planets) {
-		var curr = this.planetHead;
-
-		while(curr && curr.next) {
-			curr.print();
-			curr = curr.next;
-		}
 	}
 });
-module.exports = Accrete;

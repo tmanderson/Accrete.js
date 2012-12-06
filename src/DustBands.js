@@ -92,6 +92,8 @@ DustBands.prototype = Object.create({
 		}
 
 		if(after) {
+			//	This is extremely bad for performance
+			//	Make this better
 			var first 	= this.bands.slice(0, after + 1),
 				last	= this.bands.slice(after + 1);
 
