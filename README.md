@@ -5,6 +5,9 @@ Accrete.js is a port of the awesome planetary system simulation algorithm, [Accr
 
 The late 80's came and Matt Burdick brought this priceless program to the masses (via Turbo Pascal and C). Since then, many versions of *Accrete* have popped up around the internet, adding varying degrees of planetary specifics the most notable (and ingenious) being [Jim Burrow's](http://www.eldacur.com/~brons/) implementation [StarGen](http://www.eldacur.com/~brons/NerdCorner/StarGen/StarGen.html). [Ian Burrell's](http://znark.com/) [Java port](http://znark.com/create/accrete.html) is another great up-to-date example (and a huge help in Accrete.js).
 
+### Render
+Check out, add to, and keep an eye on the render directory for different visualizations of your generated star system. Currently, there's a basic WebGL rendering that I'm still (slowly) adding to.
+
 ### Goals
 1. A full build process for Browser/Node scripts and modules.
 2. Implement a good chunk of [StarGen's](http://www.eldacur.com/~brons/NerdCorner/StarGen/StarGen.html) features.
