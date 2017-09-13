@@ -1,23 +1,59 @@
-var DoleParams = Object.create({
-	B: 1.2e-5, 					// For critical mass
+export const rand = (min = 0, max = min + 1, n = 2) => {
+	const vals = new Uint16Array(n);
+	crypto.getRandomValues(vals);
+	return Math.max(
+		min,
+		Math.min(max, max * vals.reduce((out, v) => out + (v/65536), 0)/n)
+	);
+}
 
-	K: 50, 						// Dust/gas ratio
+// no n-1 business, since we're usin' arrays here!
+export const Γ = n => (new Array(n)).fill(1).map((_, i) => i || _).reduce((total, v) => total *= v);
 
-	dustDensityCoeff : 1.5e-3, 	// A in Dole's paper
-	cloudEccentricity: 0.25,
-	eccentricityCoeff: 0.077,
+/**
+	THESE ARE CONFIGURABLE WITH THE OPTIMAL (most like our solar system) VALUES:
+		A = 0.0015, K =  50, ⍺ = 5, n = 3
+**/
 
-	//	ALPHA and N both used in density calculations
-	ALPHA: 5,
-	N: 3,
+// Initial mass-of-matter in Solar masses per cubic A.U. "dust density coeff"
+export const A = 0.0015;
+// The dust-to-gas ratio (dust/gas = K)
+export const K =  50;
+// Negative exponential coefficient (EXPLANATION?) used in calculating dust density
+export const a = 5;
+// Used in calculating dust density (as the nth root of the radius, r)
+export const n = 3;
 
-	criticalMass: function(radius, eccentricity, luminosity) {
-		return (this.B * Math.pow(this.perihelionDistance(radius, eccentricity) * Math.sqrt(luminosity), -0.75));
-	},
+/** DO NOT CHANGE these constants (as they don't provide consistent variation) **/
+
+// Maximum angular inclination of dust cloud
+export const ϴ = Math.PI/2.01; // ~90 degrees
+export const B = 0.000012; // For critical mass
+// Total mass of cloud in terms of solar mass
+export const M = 0.0584 * Math.cos(Math.PI/2 - ϴ)
+// Used to calculate the eccentricity of planetary nuclei
+// (Dole states this conforms to an empirical probability function for distribution
+// of orbital eccentricities)
+export const Q = 0.077; // eccentricity = 1 - (1 - RAND[0, 1]) ^ Q
+// Eccentricity of dust cloud
+export const W = 0.25;
+// Used as the `nth` root
+export const N = 3,
+// When the mass with given radius, eccentricity in a system with star of luminosity
+// hits "critical mass" in which dust AND gas is collected by its forces
+export const criticalMass = (radius, eccentricity, luminosity) => {
+	// cube root of
+	return (
+		B * Math.pow(
+			this.perihelionDistance(radius, eccentricity) * Math.sqrt(luminosity),
+			-1/N
+		)
+	);
+}
 
 	/**
 	 *	function perihelionDistance
-	 *	
+	 *
 	 *	returns the distance between the orbiting body and the
 	 *	sun at it's closest approach.
 	 */
@@ -32,7 +68,7 @@ var DoleParams = Object.create({
 	 *	sun at it's furthest approach.
 	 */
 	aphelionDistance: function(radius, eccentricity) {
-		return radius * (1 - eccentricity);
+		return radius * (1 + eccentricity);
 	},
 
 	reducedMass: function(mass) {
@@ -44,14 +80,15 @@ var DoleParams = Object.create({
 	},
 
 	lowBound: function(inner) {
-		return inner / (1 + this.cloudEccentricity);
+		return inner / (1 + W);
 	},
 
 	highBound: function(outer) {
-		return outer / (1.0 - this.cloudEccentricity);
+		return outer / (1.0 - W);
 	},
 
 	innerEffectLimit: function(a, e, m) {
+		// CHANGE THE `1` in a lot of these cases to the STELLAR MASS
 		return this.perihelionDistance(a, e) * (1 - m);
 	},
 
@@ -71,11 +108,11 @@ var DoleParams = Object.create({
 	},
 
 	dustDensity: function(stellarMass, oribitalRadius) {
-		return this.dustDensityCoeff * Math.sqrt(stellarMass) * Math.exp(-this.ALPHA * Math.pow(oribitalRadius, 1/this.N));
+		return A * Math.sqrt(stellarMass) * Math.exp(-⍺ * Math.pow(oribitalRadius, 1/N));
 	},
 
 	massDensity: function(dustDensity, criticalMass, mass) {
-		return this.K * dustDensity / (1 + Math.sqrt(criticalMass / mass) * (this.K - 1));
+		return (K * dustDensity) / (1 + Math.sqrt(criticalMass / mass) * (K - 1));
 	},
 
 	scaleCubeRootMass: function(scale, mass) {
@@ -91,14 +128,15 @@ var DoleParams = Object.create({
 	},
 
 	innermostPlanet: function(stellarMass) {
+		// 0.3 AU
 		return this.scaleCubeRootMass(0.3, stellarMass);
 	},
-
+	// 50 AU
 	outermostPlanet: function(stellarMass) {
 		return this.scaleCubeRootMass(50, stellarMass);
 	},
 
 	randomEccentricity: function() {
-		return (1 - Math.pow(Math.random(), this.eccentricityCoeff));
+		return (1 - Math.pow(1 - rand(), Q));
 	}
 });

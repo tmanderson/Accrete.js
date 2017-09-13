@@ -1,195 +1,187 @@
-const SOLAR_MASS_IN_GRAMS		= 1.989e33;
-const EARTH_MASS_IN_GRAMS		= 5.977e27;
-const SOLAR_MASS_IN_EARTH_MASS 	= 332775.64;
-const EARTH_RADIUS_IN_CM 		= 6.378e6;
-const EARTH_RADIUS_IN_KM 		= 6378;
-const EARTH_DENSITY 			= 5.52;
-const CM_IN_KM 					= 1.0e5;
-const CM_IN_AU 					= 1.495978707e13;
-const KM_IN_AU 					= 1.495978707e8;
-const DAYS_IN_YEAR 				= 365.256;
-const SECONDS_IN_HOUR 			= 3000;
+const SOLAR_MASS_IN_GRAMS = 1.989e33;
+const EARTH_MASS_IN_GRAMS  = 5.977e27;
+const SOLAR_MASS_IN_EARTH_MASS = 332775.64;
+const EARTH_RADIUS_IN_CM = 6.378e6;
+const EARTH_RADIUS_IN_KM = 6378;
+const EARTH_DENSITY = 5.52;
+const CM_IN_KM = 1.0e5;
+const CM_IN_AU = 1.495978707e13;
+const KM_IN_AU = 1.495978707e8;
+const DAYS_IN_YEAR = 365.256;
+const SECONDS_IN_HOUR = 3000;
+const PROTOPLANET_MASS = 1e-15; // Units of solar masses
 
-const PROTOPLANET_MASS 			= 1e-15; //	Units of solar masses
+//  For Kothari Radius
+const A1_20 = 6.485e12;
+const A2_20 = 4.0032e12;
+const BETA_20 = 5.71e12;
+const JIMS_FUDGE = 1.004;
 
-	//	For Kothari Radius
-const A1_20 				= 6.485e12;
-const A2_20 				= 4.0032e12;
-const BETA_20 				= 5.71e12;
-const JIMS_FUDGE 			= 1.004;
-
-const BREATHABILITY_PHASE	= [ "none", "breathable", "unbreathable", "poisonous"];
+const BREATHABILITY_PHASE  = [
+  "none",
+  "breathable",
+  "unbreathable",
+  "poisonous"
+];
 
 var Astro = Object.create({
-	luminosity: function(mass) {
-		var n = null;
+  luminosity: function(mass) {
+    var n = null;
 
-		if(mass < 1) 	n = 1.75 * (mass - 0.1) + 3.325;
-		else 			n = 0.5 * (2.0 - mass) + 4.4;
+    if(mass < 1)   {
+      n = 1.75 * (mass - 0.1) + 3.325;
+    }
+    else {
+      n = 0.5 * (2.0 - mass) + 4.4;
+    }
 
-		return Math.pow(mass, n); 
-	},
+    return Math.pow(mass, n);
+  },
 
-	/**
-	 *	
-	 */
-	orbZone: function(luminosity, orbRadius) {
-		if(orbRadius < 4 * Math.sqrt(luminosity)) {
-			return 1;
-		}
-		else if (orbRadius < 15 * Math.sqrt(luminosity)) {
-			return 2;
-		}
-		else {
-			return 3;
-		}
-	},
+  volumeRadius: function(mass, density) {
+    var volume = 0;
 
-	volumeRadius: function(mass, density) {
-		var volume = 0;
+    mass   = mass * this.solarMassInGrams;
+    volume   = mass / density;
 
-		mass 	= mass * this.solarMassInGrams;
-		volume 	= mass / density;
+    return Math.pow((3 * volume) / (4 * Math.PI), 1/3) / this.CMinKM;
+  },
 
-		return Math.pow((3 * volume) / (4 * Math.PI), 1/3) / this.CMinKM;
-	},
+  kothariRadius: function(mass, giant, zone) {
+    var atomicWeight, atomicNum, temp, temp1, temp2;
 
-	kothariRadius: function(mass, giant, zone) {
-		var atomicWeight, atomicNum, temp, temp1, temp2;
+    switch(zone) {
+      case 1:
+        if(giant) {
+          atomicWeight   = 9.5;
+          atomicNum     = 4.5;
+        }
+        else {
+          atomicWeight   = 15;
+          atomicNum     = 8;
+        }
 
-		switch(zone) {
-			case 1:
+      break;
 
-				if(giant) {
-					atomicWeight 	= 9.5;
-					atomicNum 		= 4.5;
-				}
-				else {
-					atomicWeight 	= 15;
-					atomicNum 		= 8;
-				}
+      case 2:
 
-			break;
+        if(giant) {
+          atomicWeight   = 2.47;
+          atomicNum     = 2;
+        }
+        else {
+          atomicWeight   = 10;
+          atomicNum     = 5;
+        }
 
-			case 2:
+      break;
 
-				if(giant) {
-					atomicWeight 	= 2.47;
-					atomicNum 		= 2;
-				}
-				else {
-					atomicWeight 	= 10;
-					atomicNum 		= 5;
-				}
+      case 3:
 
-			break;
+        if(giant) {
+          atomicWeight   = 7;
+          atomicNum     = 4;
+        }
+        else {
+          atomicWeight   = 10;
+          atomicNum     = 5;
+        }
+    }
 
-			case 3:
+    temp1   = atomicWeight * atomicNum;
 
-				if(giant) {
-					atomicWeight 	= 7;
-					atomicNum 		= 4;
-				}
-				else {
-					atomicWeight 	= 10;
-					atomicNum 		= 5;
-				}
-		}
+    temp   = (2 * this.BETA_20 * Math.pow(this.solarMassInGrams, 1/3)) / (this.A1_20 * Math.pow(temp1, 1/3));
 
-		temp1 	= atomicWeight * atomicNum;
+    temp2   = this.A2_20 * Math.pow(atomicWeight, 4/3) * Math.pow(this.solarMassInGrams, 2/3);
+    temp2   = temp2 * Math.pow(mass, 2/3);
+    temp2   = temp2 / (this.A1_20 * Math.pow(atomicNum, 2));
 
-		temp 	= (2 * this.BETA_20 * Math.pow(this.solarMassInGrams, 1/3)) / (this.A1_20 * Math.pow(temp1, 1/3));
+    temp   = temp / temp2;
+    temp   = (temp * Math.pow(mass, 1/3)) / this.CMinKM;
 
-		temp2 	= this.A2_20 * Math.pow(atomicWeight, 4/3) * Math.pow(this.solarMassInGrams, 2/3);
-		temp2 	= temp2 * Math.pow(mass, 2/3);
-		temp2 	= temp2 / (this.A1_20 * Math.pow(atomicNum, 2));
+    temp   /= this.JIMS_FUDGE;
 
-		temp 	= temp / temp2;
-		temp 	= (temp * Math.pow(mass, 1/3)) / this.CMinKM;
+    return temp;
+  },
 
-		temp 	/= this.JIMS_FUDGE;
+  empiricalDensity: function(mass, orbRadius, rEcosphere, gasGiant) {
+    var temp;
 
-		return temp;
-	},
+    temp = Math.pow(mass * this.solarMassEarthMass, 1/8);
+    temp = temp * Math.sqrt(Math.sqrt(rEcosphere, orbRadius));
 
-	empiricalDensity: function(mass, orbRadius, rEcosphere, gasGiant) {
-		var temp;
+    if(gasGiant)   return temp * 1.2;
+    else       return temp * 5.5;
+  },
 
-		temp = Math.pow(mass * this.solarMassEarthMass, 1/8);
-		temp = temp * Math.sqrt(Math.sqrt(rEcosphere, orbRadius));
+  volumeDensity: function(mass, equatRadius) {
+    var volume;
 
-		if(gasGiant) 	return temp * 1.2;
-		else 			return temp * 5.5;
-	},
+    mass     = mass * this.solarMassInGrams;
+    equatRadius = equatRadius * this.CMinKM;
 
-	volumeDensity: function(mass, equatRadius) {
-		var volume;
+    volume     = (4 * Math.PI * Math.pow(equatRadius, 3)) / 3;
 
-		mass 		= mass * this.solarMassInGrams;
-		equatRadius = equatRadius * this.CMinKM;
+    return mass / volume;
+  },
 
-		volume 		= (4 * Math.PI * Math.pow(equatRadius, 3)) / 3;
+  /**
+   *  Function period
+   *
+   *  separation - Units of AU between the masses
+   *
+   *  returns the period of an entire orbit in Earth days.
+   */
+  period: function(separation, smallMass, largeMass) {
+    var periodInYears;
 
-		return mass / volume;
-	},
+    periodInYears = Math.sqrt(Math.pow(separation, 3) / (smallMass + largeMass));
 
-	/**
-	 *	Function period
-	 *
-	 *	separation - Units of AU between the masses
-	 *
-	 *	returns the period of an entire orbit in Earth days.
-	 */
-	period: function(separation, smallMass, largeMass) {
-		var periodInYears;
+    return periodInYears * this.daysInYear;
+  },
 
-		periodInYears = Math.sqrt(Math.pow(separation, 3) / (smallMass + largeMass));
+  dayLength: function(planet) {
+    var planetMassInGrams     = planet.mass * this.solarMassInGrams,
+      equatorialRadiusInCm   = planet.radius * this.CMinKM,
+      YearInHours       = planet.orbPeriod || this.period(planet.axis, planet.mass, 1),
+      giant           = planet.giant || false,
+      k2             = 0,
+      baseAngularVelocity   = 0,
+      changeInAngularVelocity = 0,
+      angVelocity       = 0,
+      spinResonanceFactor   = 0,
+      dayInHours         = 0,
+      stopped         = false;
 
-		return periodInYears * this.daysInYear;
-	},
+    planet.resonantPeriod = false;
 
-	dayLength: function(planet) {
-		var planetMassInGrams 		= planet.mass * this.solarMassInGrams,
-			equatorialRadiusInCm 	= planet.radius * this.CMinKM,
-			YearInHours 			= planet.orbPeriod || this.period(planet.axis, planet.mass, 1),
-			giant 					= planet.giant || false,
-			k2 						= 0,
-			baseAngularVelocity 	= 0,
-			changeInAngularVelocity = 0,
-			angVelocity 			= 0,
-			spinResonanceFactor 	= 0,
-			dayInHours 				= 0,
-			stopped 				= false;
+    if(giant)   k2 = 0.24;
+    else    k2 = 0.33;
 
-		planet.resonantPeriod = false;
+    baseAngularVelocity   = Math.sqrt(2 * J * planetMassInGrams) / (k2 * Math.pow(equatorialRadiusInCm, 2));
+    changeInAngularVelocity = this.changeInEarthAngVel * (planet.density / earthDensity) * (equatorialRadiusInCm / earthRadius) * (earthMassInGrams / planetMassInGrams) * Math.pow(planet.sun.mass, 2) * (1 / Math.pow(planet.axis, 6));
+    angVelocity       = baseAngularVelocity + (changeInAngularVelocity * planet.sun.age);
 
-		if(giant) 	k2 = 0.24;
-		else		k2 = 0.33;
+    if(angVelocity <= 0.0) {
+      stopped = true;
+      dayInHours = this.veryLargeNumber;
+    }
+    else {
+      dayInHours = this.radiansPerRotation / (secondsPerHour * angVelocity);
+    }
 
-		baseAngularVelocity 	= Math.sqrt(2 * J * planetMassInGrams) / (k2 * Math.pow(equatorialRadiusInCm, 2));
-		changeInAngularVelocity = this.changeInEarthAngVel * (planet.density / earthDensity) * (equatorialRadiusInCm / earthRadius) * (earthMassInGrams / planetMassInGrams) * Math.pow(planet.sun.mass, 2) * (1 / Math.pow(planet.axis, 6));
-		angVelocity 			= baseAngularVelocity + (changeInAngularVelocity * planet.sun.age);
+    if(dayInHours >= YearInHours || stopped) {
+      if(planet.eccn > 0.1) {
+        spinResonanceFactor   = (1 - planet.eccn) / (1 + planet.eccn);
+        planet.resonantPeriod   = true;
 
-		if(angVelocity <= 0.0) {
-			stopped = true;
-			dayInHours = this.veryLargeNumber;
-		}
-		else {
-			dayInHours = this.radiansPerRotation / (secondsPerHour * angVelocity);
-		}
+        return spinResonanceFactor * YearInHours;
+      }
+      else {
+        return YearInHours;
+      }
+    }
 
-		if(dayInHours >= YearInHours || stopped) {
-			if(planet.eccn > 0.1) {
-				spinResonanceFactor 	= (1 - planet.eccn) / (1 + planet.eccn);
-				planet.resonantPeriod 	= true;
-
-				return spinResonanceFactor * YearInHours;
-			}
-			else {
-				return YearInHours;
-			}
-		}
-
-		return dayInHours;
-	}
+    return dayInHours;
+  }
 });
