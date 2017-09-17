@@ -43,6 +43,7 @@ Nothing here could have ever (ever, ever, ever) been done without the following 
 - Richard Isaacson
 - Martin Fogg
 - Matt Burdick
+- Jim Burrow
 - Ian Burrell
 - The many brilliant minds that have contributed their knowlege to, and insights into our awe-inspiring universe.
 
