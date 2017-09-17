@@ -1,32 +1,39 @@
-import { rand, K, W } from './DoleParams';
+import chalk from 'chalk';
+import { SOLAR_MASS_IN_EARTH_MASS, PROTOPLANET_MASS } from './Astro';
+import { rand, B, K, W, Q } from './DoleParams';
 
 export default class Planetismal {
-	get perihelion = () => this.a * (1 - this.e);
-	get aphelion = () => this.a * (1 + this.e);
+	get perihelion() { return this.a - this.a * this.e; };
+	get aphelion() { return this.a + this.a * this.e };
 
-	get xp = () => this.perihelion * Math.pow(this.relativeMass, 1/4);
-	get xa = () => this.aphelion * Math.pow(this.relativeMass, 1/4);
+	get xp() { return this.perihelion * this.quadMass; };
+	get xa() { return this.aphelion * this.quadMass; };
 
-	get relativeMass = () => this.mass/(1 + this.mass);
+	get relativeMass() { return this.mass/(1 + this.mass); };
+	get earthMass() { return this.mass * SOLAR_MASS_IN_EARTH_MASS };
 
-	constructor(radius, eccentricity, mass = 10e-15, isGasGiant = false) {
+	constructor(majorAxis, eccentricity, mass = PROTOPLANET_MASS, isGasGiant = false) {
 		// semi-major axis
-		this.a = 50 * rand();
+		this.a = majorAxis;
 		// orbital eccentricity
-    this.e = 1 - Math.pow(1 - rand(), Q);
-
+    this.e = eccentricity;
 		this.mass = mass;
-		this.radius = radius;
-		this.isGasGiant = isGasGiant;
+		this.quadMass = Math.pow(this.relativeMass, 1/4);
+		this.criticalMass = B * Math.pow(this.perihelion, -3/4);
+		this.isGasGiant = mass >= this.criticalMass ? true : isGasGiant;
+		this.deltaMass = 1;
+		// console.log(chalk.bold(chalk.yellow('Injecting Nucleus')))
+		// console.log(`${chalk.bold('Distance a=')}${this.a}`);
+		// console.log(`${chalk.bold('Eccentricity e=')}${this.e}`);
 	}
 
 	bandwidth() {
-		const { aphelion, perihelion, xa, xp, mass } = this;
+		const { aphelion, perihelion, xa, xp } = this;
 
 		const t1 = (W * (aphelion + xa))/(1 - W);
 		const t2 = (W * (perihelion - xp))/(1 + W);
 
-		return 2 * a * e + xa + xp + t1 + t2;
+		return 2 * this.a * this.e + xa + xp + t1 + t2;
 	}
 
 	bandVolume() {
@@ -34,68 +41,11 @@ export default class Planetismal {
 	}
 
 	addMass(m) {
-		const newMass = this.mass + m;
-		this.deltaMass = newMass - this.mass;
-		this.mass = newMass;
+		this.deltaMass = (this.mass + m) - this.mass;
+		this.quadMass = Math.pow(this.mass/(1 + this.mass), 1/4);
+		this.mass = this.mass + m;
+		// The original Dole paper has this as B * Math.pow(perihelion, -3/4)
+		if (!this.isGasGiant && this.mass >= this.criticalMass) this.isGasGiant = true;
 		return this;
 	}
-
-	accumulate(cloud) {
-		// const accumulatedMass = this.bandwidth() * cloud.densityAtDistance(this.a); // SEE IF THIS IS THE SAME!!
-
-		const p = cloud.densityAtDistance(this.a);
-		const cubeMass = Math.pow(this.relativeMass, 1/4);
-
-		const num = (8 * Math.PI * Math.pow(this.a, 3) * p * cubeMass);
-		const den = (1 - W * W);
-
-		const newMass = (num/den) * (this.e * cubeMass + W + W * this.e * cubeMass);
-
-		this.deltaMass = newMass - this.mass;
-		this.mass = newMass;
-
-		return newMass;
-	}
-
-	// The additional bandwidth swept by the planetismal due to gravitational forces
-	attractionDistance(r) {
-		return r * Math.pow(this.mass/(1 + this.mass), 1/4);
-	}
-
-	reducedMass() {
-		return DoleParams.reducedMass(this.mass)
-	}
-
-	reducedMargin() {
-		return DoleParams.reducedMargin(this.mass);
-	}
-
-	innerEffectLimit() {
-		return DoleParams.innerEffectLimit(this.radius, this.eccn, DoleParams.reducedMargin(this.mass));
-	}
-
-	outerEffectLimit() {
-		return DoleParams.outerEffectLimit(this.radius, this.eccn, DoleParams.reducedMargin(this.mass));
-	}
-
-	innerSweptLimit() {
-		return DoleParams.innerSweptLimit(
-			this.radius,
-			this.eccn,
-			DoleParams.reducedMargin(this.mass)
-		);
-	}
-
-	outerSweptLimit() {
-		return DoleParams.outerSweptLimit(this.radius, this.eccn, DoleParams.reducedMargin(this.mass));
-	}
-
-	criticalMass(luminosity) {
-		return DoleParams.criticalMass(this.radius, this.eccn, luminosity);
-	}
-
-	getEarthMass() {
-		return this.mass * SOLAR_MASS_IN_EARTH_MASS;
-	}
-
 };

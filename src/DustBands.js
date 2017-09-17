@@ -1,31 +1,9 @@
-import { A, a, Γ, K, n, ϴ, W } from './params';
-
-export default class DustCloud {
-	constructor(radius = 50, ratio = K) {
-		this.radius = 50;
-		this.ratio = ratio;
-
-		let num = 4 * Math.PI * K * A * n * Γ(3 * n);
-		let den = Math.pow(a, 3 * n);
-
-		this.mass = num/den * Math.cos(Math.PI/2 - ϴ);
-	}
-
-	dustDensityAt(radialDistance) {
-		return A * Math.exp(-a * Math.pow(radialDistance, 1 / n));
-	}
-
-	matterDensityAt(radialDistance) {
-		return K * this.dustDensityAt(radialDistance);
-	}
-}
-
 function DustBands(inner, outer) {
 	this.addBand(inner, outer);
 }
 
 DustBands.prototype = Object.create({
-
+	
 	bands: [],
 
 	dustAvailable: function(inside, outside) {
@@ -106,10 +84,10 @@ DustBands.prototype = Object.create({
 
 	//	OPTIONAL: after (after which indice to insert)
 	addBand: function(min, max, dust, gas, after) {
-		var band = {
-			inner 	: min,
-			outer 	: max,
-			dust 	: dust || true,
+		var band = { 
+			inner 	: min, 
+			outer 	: max, 
+			dust 	: dust || true, 
 			gas 	: gas  || true
 		}
 
@@ -121,7 +99,7 @@ DustBands.prototype = Object.create({
 
 			this.bands = first.concat(band, last);
 		} else {
-			this.bands.push(band);
+			this.bands.push(band);	
 		}
 
 		return band;
