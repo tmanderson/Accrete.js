@@ -1,26 +1,30 @@
 # ACCRETE.js
-### Planetary system creation simulation in the browser, or on server.
+### Planetary system creation simulation in the browser, or the server.
 
 ### Usage
 For now, just use accrete.js, which includes each module concatenated in order. Include that script in any environment and the following will output your basic planet data for a system similar to our own:
 
+#### Browser
+```javascript
+<script src="accrete.min.js"></script>
+const system = Accrete.System();
+system.create();
+
+const planets = system.planets;
 ```
-import StarSystem from 'accrete';
+
+#### Node
+```javascript
+import StarSystem from 'Accrete';
 
 const system = new StarSystem();
 system.create();
-
-system.planets.forEach(p => {
-  p.mass
-  p.perihelion
-  p.aphelion
-  p.isGasGiant
-})
+const planets = system.planets;
 ```
 
 ### Goals
 - [x] Organize the codebase into a more modern, and JavaScript friendly structure.
-- [ ] A full build process for Browser/Node scripts and modules.
+- [x] A full build process for Browser/Node scripts and modules.
 - [ ] Implement a good chunk of [StarGen's](http://www.eldacur.com/~brons/NerdCorner/StarGen/StarGen.html) features.
 - [ ] Live WebGL view and screenshot options for created systems.
 - [ ] Other cool things to take advantage of this amazing program.

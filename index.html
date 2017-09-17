@@ -1,14 +1,17 @@
 <html>
 <head>
 	<title>ACCRETE</title>
-	<script src="accrete.js"></script>
-	<script>
-		var gen = new Accrete();
-
-		gen.distributePlanets();
-	</script>
+	<script src="dist/accrete.min.js"></script>
 </head>
 <body>
-
+  <button>Generate Star System</button>
+  <script>
+    document.querySelector('button').onclick = function() {
+      var planets = Accrete.generatePlanets();
+      console.log(
+        planets.map(p => [p.a, p.earthMass]).sort(([d1, m1], [d2, m2]) => d1-d2)
+      );
+    };
+  </script>
 </body>
 </html>

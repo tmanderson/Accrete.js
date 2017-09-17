@@ -1,11 +1,46 @@
 {
+  "name": "accrete",
+  "description": "Planetary system creation simulation in the browser, or the server.",
+  "version": "0.1.0",
+  "main": "src/index.js",
+  "scripts": {
+    "predocs": "rm -rf ./docs && mkdir docs",
+    "docs:gen": "jsdoc -c ./.jsdocrc -d ./docs ./src/*.js",
+    "docs": "npm run predocs && npm run docs:gen && open ./docs/index.html",
+    "build:babel": "babel -o ./dist/accrete.tmp.js ./src",
+    "build:browser": "browserify -s Accrete -e ./src/index.js -o ./dist/accrete.js -t [ babelify ]",
+    "build:uglify": "uglifyjs ./dist/accrete.js > ./dist/accrete.min.js",
+    "build": "npm run build:browser && npm run build:uglify && npm run postbuild",
+    "prebuild": "rm -rf ./dist && mkdir ./dist",
+    "postbuild": "rm -rf ./dist/accrete.tmp.js",
+    "watch:src": "watch 'npm run build' src",
+    "watch:css": "watch 'npm run build:assets' assets/scss",
+    "watch": "parallelshell 'npm run watch:src' 'npm run watch:css'",
+    "start:dev": "php -S localhost:8080 & npm run watch",
+    "postinstall": "npm run build"
+  },
+  "devDependencies": {},
   "dependencies": {
     "babel": "^6.23.0",
     "babel-cli": "^6.26.0",
     "babel-eslint": "^8.0.0",
     "babel-preset-env": "^1.6.0",
+    "babelify": "^7.3.0",
+    "browserify": "^14.4.0",
     "chalk": "^2.1.0",
     "eslint": "^4.7.0",
-    "eslint-plugin-import": "^2.7.0"
-  }
+    "eslint-plugin-import": "^2.7.0",
+    "uglify": "^0.1.5",
+    "uglifyjs": "^2.4.11"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tmanderson/Accrete.js.git"
+  },
+  "author": "Mitch Anderson",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/tmanderson/Accrete.js/issues"
+  },
+  "homepage": "https://github.com/tmanderson/Accrete.js#readme"
 }
