@@ -22,7 +22,7 @@ System
 
     (a - ae), (a + ae) = orital "sweep" boundary (captures all particles here)
 
-    // Also captures other particles via gravitation
+    # Also captures other particles via gravitation
     x = [distance of particle from planetismal] * ([mass of particle]/(1 + [mass of particle])]^1/4 = r੫^1/4
 
     total band width =
@@ -32,3 +32,5 @@ System
 
     band volume = 2π(total band width)(x_a + x_p)
     (band volume) * (density at _a)
+
+    Growth stops when the mass increase between any two serial iterations falls below (mass * 1e-4)

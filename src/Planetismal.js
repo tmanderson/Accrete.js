@@ -1,51 +1,50 @@
-import chalk from 'chalk';
-import { SOLAR_MASS_IN_EARTH_MASS, PROTOPLANET_MASS } from './Astro';
-import { rand, B, K, W, Q } from './DoleParams';
+import { B, W, N, SOLAR_MASS_IN_EARTH_MASS, PROTOPLANET_MASS } from './constants';
 
 export default class Planetismal {
-	get perihelion() { return this.a - this.a * this.e; };
-	get aphelion() { return this.a + this.a * this.e };
+  get perihelion() { return this.a - this.a * this.e; };
+  get aphelion() { return this.a + this.a * this.e };
 
-	get xp() { return this.perihelion * this.quadMass; };
-	get xa() { return this.aphelion * this.quadMass; };
+  get xp() { return this.perihelion * this.quadMass; };
+  get xa() { return this.aphelion * this.quadMass; };
 
-	get relativeMass() { return this.mass/(1 + this.mass); };
-	get earthMass() { return this.mass * SOLAR_MASS_IN_EARTH_MASS };
+  get relativeMass() { return this.mass/(1 + this.mass); };
+  get earthMass() { return this.mass * SOLAR_MASS_IN_EARTH_MASS };
 
-	constructor(majorAxis, eccentricity, mass = PROTOPLANET_MASS, isGasGiant = false) {
-		// semi-major axis
-		this.a = majorAxis;
-		// orbital eccentricity
+  constructor(majorAxis, eccentricity, mass = PROTOPLANET_MASS, isGasGiant = false) {
+    // semi-major axis
+    this.a = majorAxis;
+    // orbital eccentricity
     this.e = eccentricity;
-		this.mass = mass;
-		this.quadMass = Math.pow(this.relativeMass, 1/4);
-		this.criticalMass = B * Math.pow(this.perihelion, -3/4);
-		this.isGasGiant = mass >= this.criticalMass ? true : isGasGiant;
-		this.deltaMass = 1;
-		// console.log(chalk.bold(chalk.yellow('Injecting Nucleus')))
-		// console.log(`${chalk.bold('Distance a=')}${this.a}`);
-		// console.log(`${chalk.bold('Eccentricity e=')}${this.e}`);
-	}
+    // initial mass
+    this.mass = mass;
+    // the quad-root of normalized mass (mass/(mass + 1))
+    this.quadMass = Math.pow(this.relativeMass, 1/4);
+    // when this planet begins accreting gas
+    this.criticalMass = B * Math.pow(this.perihelion /* sqrt(lumosity) */, -N/4);
+    // is this a gas giant?
+    this.isGasGiant = mass >= this.criticalMass ? true : isGasGiant;
+    // initial value for the change in mass (updated via `addMass`)
+    this.deltaMass = 1;
+  }
 
-	bandwidth() {
-		const { aphelion, perihelion, xa, xp } = this;
+  bandwidth() {
+    const { aphelion, perihelion, xa, xp } = this;
+    const t1 = (W * (aphelion + xa))/(1 - W);
+    const t2 = (W * (perihelion - xp))/(1 + W);
 
-		const t1 = (W * (aphelion + xa))/(1 - W);
-		const t2 = (W * (perihelion - xp))/(1 + W);
+    return 2 * this.a * this.e + xa + xp + t1 + t2;
+  }
 
-		return 2 * this.a * this.e + xa + xp + t1 + t2;
-	}
+  bandVolume() {
+    return 2 * Math.PI * this.bandwidth() * (this.xa + this.xp);
+  }
 
-	bandVolume() {
-		return 2 * Math.PI * this.bandwidth() * (this.xa + this.xp);
-	}
-
-	addMass(m) {
-		this.deltaMass = (this.mass + m) - this.mass;
-		this.quadMass = Math.pow(this.mass/(1 + this.mass), 1/4);
-		this.mass = this.mass + m;
-		// The original Dole paper has this as B * Math.pow(perihelion, -3/4)
-		if (!this.isGasGiant && this.mass >= this.criticalMass) this.isGasGiant = true;
-		return this;
-	}
+  addMass(m) {
+    this.deltaMass = (this.mass + m) - this.mass;
+    this.quadMass = Math.pow(this.mass/(1 + this.mass), 1/4);
+    this.mass = this.mass + m;
+    // The original Dole paper has this as B * Math.pow(perihelion, -3/4)
+    if(!this.isGasGiant && this.mass >= this.criticalMass) this.isGasGiant = true;
+    return this;
+  }
 };

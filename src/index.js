@@ -1,6 +1,11 @@
 import StarSystem from './StarSystem';
 
-const system = new StarSystem();
-system.create();
+export default StarSystem;
 
-console.log(system.planets.map(p => [p.a, p.earthMass]).sort(([d1,m1], [d2,m2]) => d1-d2))
+export const generatePlanets = () => {
+  const system = new StarSystem();
+  return system.create().planets;
+}
+
+
+console.log(generatePlanets().map(p => [p.a, p.earthMass]).sort(([d1, m1], [d2, m2]) => d1-d2))

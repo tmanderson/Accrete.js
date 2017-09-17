@@ -1,0 +1,52 @@
+{
+  "parser": "babel-eslint",
+  "plugins": ["import"],
+  "globals": {
+    "__DEV__": true,
+    "window": true,
+    "document": true,
+    "console": true,
+  },
+  "env": {
+    "browser": true,
+    "es6": true,
+    "node": true
+  },
+  "rules": {
+    "no-plusplus": 0,
+    "no-bitwise": 0,
+    "class-methods-use-this": 0,
+    "no-param-reassign": 0,
+    "max-len": ["warn", 120],
+    "arrow-parens": ["error", "as-needed"],
+    "space-before-function-paren": ["error", "never"],
+    "no-unused-vars": ["error", { "vars": "all", "args": "after-used" }],
+    "no-confusing-arrow": 0,
+    "no-mixed-operators": 0,
+    "semi": 0,
+    "import/no-unresolved": [2, { "commonjs": true, "amd": true }],
+    "import/default": 2,
+    "import/export": 2,
+    "keyword-spacing": ["error", {
+      "after": true,
+      "overrides": {
+        "if": { "after": false },
+        "for": { "after": false },
+        "while": { "after": false },
+        "switch": { "after": false },
+        "function": { "after": false },
+        "catch": { "after": false },
+        "break": { "after": false },
+        "finally": { "after": false }
+      }
+    }],
+    "key-spacing": ["error", { "afterColon": true, "beforeColon": false }],
+    "comma-spacing": ["error", { "before": false, "after": true }],
+    "react/jsx-quotes": 0,
+    "indent": ["error", 2],
+    "brace-style": ["error", "stroustrup", { "allowSingleLine": true }],
+    "lines-around-directive": ["error", "always"],
+    "newline-after-var": 0,
+    "jsx-quotes": [ 2, "prefer-double" ]
+  }
+}

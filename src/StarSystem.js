@@ -1,10 +1,10 @@
-import { N, K, W, Q, rand } from './DoleParams';
-import { PROTOPLANET_MASS } from './Astro';
+import { N, K, W, Q, PROTOPLANET_MASS, MAX_SYSTEM_ITERATIONS } from './constants';
+import { rand } from './utils';
 import DustCloud from './DustCloud';
 import Planetismal from './Planetismal';
 
 export default class StarSystem {
-  constructor(stellarMass, stellarLuminosity) {
+  constructor(stellarMass) {
     this.mass = 1;
     this.luminosity = 1;
     this.planets = [];
@@ -13,8 +13,22 @@ export default class StarSystem {
 
   create() {
     let i = 0;
-    while(this.matter.hasDust && i++ < 100000) this.injectNucleus();
-    console.log(this.matter.hasDust, this.matter.mass);
+    while(this.matter.hasDust && i++ < MAX_SYSTEM_ITERATIONS) {
+      this.injectNucleus();
+    }
+
+    this.planets = this.planets.reduce((out, p) => {
+      if(out.length < 1) return out.concat(p);
+      let j = this.hasCollision(p, out);
+      if(j >= 0) {
+        return out.slice(0, j).concat(
+          this.coalescePlanetismals(planetoid, out[i])
+        );
+      }
+      return out.concat(p);
+    }, []);
+
+    return this;
   }
 
   injectNucleus() {
@@ -25,7 +39,6 @@ export default class StarSystem {
 
     while((p = this.matter.sweep(n)) > 0 && n.deltaMass > n.mass * 1e-4) {
       // if (!this.matter.containsDust(n.perihelion - n.xp, n.aphelion + n.xa, n.isGasGiant)) break;
-
       const t1 = (8 * Math.PI * Math.pow(n.a, N) * p * n.quadMass) / (1 - W * W);
       const t2 = (n.e + n.quadMass + W + W * n.e * n.quadMass);
       const newMass = (t1 * t2);
@@ -33,18 +46,15 @@ export default class StarSystem {
       n.addMass(newMass - n.mass);
     }
 
-    if (n.mass <= PROTOPLANET_MASS) return;
-    if (this.planets.length < 2) return this.planets.push(n);
+    if(n.mass <= PROTOPLANET_MASS) return;
+    if(this.planets.length < 2) return this.planets.push(n);
 
     let planetoid = n;
     let newPlanets = this.planets;
 
-    while (newPlanets.length > 0 && (i = this.hasCollision(planetoid, newPlanets)) >= 0) {
+    while(newPlanets.length > 0 && (i = this.hasCollision(planetoid, newPlanets)) >= 0) {
       planetoid = this.coalescePlanetismals(planetoid, newPlanets[i]);
-      // console.log('------------------------------')
-      // console.log(newPlanets.length);
       newPlanets = newPlanets.slice(0, i).concat(newPlanets.slice(i + 1));
-      // console.log(this.planets.length);
     }
 
     this.planets = newPlanets.concat(planetoid);
@@ -54,12 +64,9 @@ export default class StarSystem {
     const p1_p = p1.perihelion - p1.xp;
     const p1_a = p1.aphelion + p1.xa;
 
-    return planets.findIndex((p2, i) => {
-      // console.log(i, p2.perihelion, p2.xp);
+    return planets.findIndex(p2 => {
       const p2_p = p2.perihelion - p2.xp;
       const p2_a = p2.aphelion + p2.xa;
-      const p = Math.min(p2_p, p1_a);
-      const a = Math.max(p2_a, p1_p);
       return p2_p < p1_a || p2_a > p1_p || p1_a < p2_p || p1_p < p2_a;
     });
   }
