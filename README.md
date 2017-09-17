@@ -7,7 +7,7 @@ For now, just use accrete.js, which includes each module concatenated in order. 
 #### Browser
 ```javascript
 <script src="accrete.min.js"></script>
-const system = Accrete.System();
+const system = new Accrete.System();
 system.create();
 
 const planets = system.planets;
@@ -15,9 +15,9 @@ const planets = system.planets;
 
 #### Node
 ```javascript
-import StarSystem from 'Accrete';
+import Accrete from 'Accrete';
 
-const system = new StarSystem();
+const system = new Accrete.System();
 system.create();
 const planets = system.planets;
 ```
