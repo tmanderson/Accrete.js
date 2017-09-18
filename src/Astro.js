@@ -1,5 +1,8 @@
 import './constants';
 
+// NOTE: This file is not currently used, but the plan is in the works.
+// This is ported directly from StarGen's (http://eldacur.com/~brons/NerdCorner/StarGen/StarGen.html) `enviro` utilities
+
 const pow2 = v => v * v;
 const pow3 = v => v * v * v;
 const pow1_4 = v => Math.pow(v, 1/4);
