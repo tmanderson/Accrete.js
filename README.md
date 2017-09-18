@@ -4,7 +4,11 @@
 The codebase has been completely reimplemented from scratch in a form that more **closely resembles that put forth in the original Dole paper**.
 
 ### Usage
-For now, just use accrete.js, which includes each module concatenated in order. Include that script in any environment and the following will output your basic planet data for a system similar to our own:
+
+#### Building
+```
+$> npm install && npm build
+```
 
 #### Browser
 ```javascript
