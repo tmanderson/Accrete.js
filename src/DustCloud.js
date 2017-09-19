@@ -31,12 +31,8 @@ export default class DustCloud {
   containsDust(l, u, includeGas = false) {
     return this.bands
       .reduce((hasDust, b) => {
-        return hasDust || ((
-          l > b.lower && u < b.upper ||
-          l < b.lower && u <= b.upper ||
-          l > b.lower && u >= b.upper ||
-          l < b.lower && u >= b.upper
-        ) && (b.dust || (includeGas && b.gas)));
+        return ((l <= b.lower && u >= b.upper) || (b.lower <= l && b.upper >= u))
+          && (hasDust || (b.dust || (includeGas && b.gas)));
       }, false);
   }
 

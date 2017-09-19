@@ -20,7 +20,7 @@ export const N = 3;
 // of orbital eccentricities)
 export const Q = 0.077;
 // For critical mass
-export const B = 1.2e-5;
+export const B = 12e-5;
 // Maximum angular inclination of dust cloud (Dole specifies as ~90 degrees)
 export const ϴ = Math.PI/2.01;
 

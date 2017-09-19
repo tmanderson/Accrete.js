@@ -10,6 +10,15 @@ export default class Planetismal {
   get relativeMass() { return this.mass/(1 + this.mass); };
   get earthMass() { return this.mass * SOLAR_MASS_IN_EARTH_MASS };
 
+  /**
+   * TODO: The eccentricity is RELATIVE to the planets displacement from the star
+   *  ((majorAxis + this.e) - majorAxis + this.e)
+   *
+   * @param      {Number}            majorAxis     The major axis
+   * @param      {Number}            eccentricity  The eccentricity
+   * @param      {number}            mass          The mass
+   * @param      {(boolean|number)}  isGasGiant    Indicates if gas giant
+   */
   constructor(majorAxis, eccentricity, mass = PROTOPLANET_MASS, isGasGiant = false) {
     // semi-major axis
     this.a = majorAxis;
