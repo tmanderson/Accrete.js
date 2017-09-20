@@ -2,15 +2,60 @@
 <head>
 	<title>ACCRETE</title>
 	<script src="dist/accrete.min.js"></script>
+  <style>
+    html, body, canvas {
+      padding: 0;
+      margin: 0;
+      height: 100vh;
+      width: 100vw;
+    }
+  </style>
 </head>
 <body>
   <button>Generate Star System</button>
+  <canvas></canvas>
   <script>
+    const canvas = document.querySelector('canvas');
+    canvas.height = document.body.offsetHeight;
+    canvas.width = document.body.offsetWidth;
+
+    const ctx = canvas.getContext('2d');
+
     document.querySelector('button').onclick = function() {
       var planets = Accrete.generatePlanets();
-      console.log(
-        planets.map(p => [p.a, p.earthMass]).sort(([d1, m1], [d2, m2]) => d1-d2)
-      );
+      var s = 40/canvas.width;
+      var inc = 100;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+
+      for(var i = 0; i < canvas.width; i += inc) {
+        ctx.moveTo(i, 0);
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.fillRect(i, 0, 2, canvas.height);
+        ctx.fillStyle = 'rgba(0,0,0,1)';
+        ctx.fillText((i * s).toFixed(2) + ' AU', i, 10);
+      }
+
+      planets.sort((p1, p2) => p1.a - p2.a)
+        .filter(p => (p.earthMass > 10e-3))
+        .forEach((p, i) => {
+          var x = 20 + (p.a/s - 20);
+          var y = document.body.offsetHeight/2;
+          var r = 200 * canvas.width/canvas.height * Math.pow(p.mass, 1/4);
+          var m = p.earthMass.toFixed(2);
+
+          var shade = Math.floor((0.6*planets.length - i)/planets.length * 255);
+          var rgba = [shade, shade, shade, 1];
+
+          ctx.beginPath();
+          ctx.fillStyle = 'rgba(' + rgba.join(',') + ')';
+          ctx.arc(x, y, r, 0, 2 * Math.PI, false);
+          ctx.fill();
+
+          ctx.fillStyle = 'black';
+          ctx.fillText(m, x - ctx.measureText(m).width/2, y + r + 10);
+        });
     };
   </script>
 </body>

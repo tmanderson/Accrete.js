@@ -6,5 +6,3 @@ export const generatePlanets = () => {
   const system = new StarSystem();
   return system.create().planets;
 }
-
-console.log(generatePlanets().map(p => [p.a, p.earthMass]));

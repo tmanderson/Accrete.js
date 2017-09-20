@@ -5,7 +5,7 @@ export const MAX_SYSTEM_ITERATIONS = 100000;
   Optimal perameters as specified in Dole's paper: A = 0.0015, K =  50, ⍺ = 5, n = 3
 */
 
-// Initial mass-of-matter in Solar masses per cubic A.U. (`A` in Dole's paper)
+// Initial mass-of-matter in solar masses per cubic A.U. (`A` in Dole's paper)
 export const A = 0.0015; // Dole's paper tests ranges between 0.001, 0.015
 // The dust-to-gas ratio (dust/gas = K)
 export const K = 50;
@@ -27,11 +27,11 @@ export const ϴ = Math.PI/2.01;
 // STAR GEN PARAMS
 export const ECCENTRICITY_COEFF = 0.077;     /* Dole's was 0.077     */
 export const PROTOPLANET_MASS = 1.0E-15;   /* Units of solar masses  */
-export const CHANGE_IN_EARTH_ANG_VEL = -1.3E-15;    /* Units of radians/sec/year*/
+export const CHANGE_IN_EARTH_ANG_VEL = -1.3e-15;    /* Units of radians/sec/year*/
 export const SOLAR_MASS_IN_GRAMS = 1.989E33;    /* Units of grams     */
 export const SOLAR_MASS_IN_KILOGRAMS = 1.989E30;    /* Units of kg        */
-export const SOLAR_MASS_IN_EARTH_MASS = 332775.64;
-export const EARTH_MASS_IN_GRAMS = 5.977E27;    /* Units of grams     */
+export const SOLAR_MASS_IN_EARTH_MASS = 1/30e-6;
+export const EARTH_MASS_IN_GRAMS = 5.977e27;    /* Units of grams     */
 export const EARTH_RADIUS = 6.378E8;   /* Units of cm        */
 export const EARTH_DENSITY = 5.52;      /* Units of g/cc      */
 export const KM_EARTH_RADIUS = 6378.0;    /* Units of km        */

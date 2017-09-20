@@ -1,4 +1,4 @@
-import { B, W, N, SOLAR_MASS_IN_EARTH_MASS, PROTOPLANET_MASS } from './constants';
+import { A, α, K, B, W, N, SOLAR_MASS_IN_EARTH_MASS, PROTOPLANET_MASS } from './constants';
 
 export default class Planetismal {
   get perihelion() { return this.a - this.a * this.e; };
@@ -9,6 +9,14 @@ export default class Planetismal {
 
   get relativeMass() { return this.mass/(1 + this.mass); };
   get earthMass() { return this.mass * SOLAR_MASS_IN_EARTH_MASS };
+
+  get criticalMass() {
+    const m_c = B * Math.pow(this.perihelion, -3/4);
+    // const num = K * A * Math.pow(-α * Math.pow(this.a, 1/N));
+    // const den = 1 + Math.sqrt(m_c/this.mass) * (K - 1);
+    // return num/den;
+    return m_c;
+  }
 
   /**
    * TODO: The eccentricity is RELATIVE to the planets displacement from the star
@@ -28,8 +36,6 @@ export default class Planetismal {
     this.mass = mass;
     // the quad-root of normalized mass (mass/(mass + 1))
     this.quadMass = Math.pow(this.relativeMass, 1/4);
-    // when this planet begins accreting gas
-    this.criticalMass = B * Math.pow(this.perihelion /* sqrt(lumosity) */, -N/4);
     // is this a gas giant?
     this.isGasGiant = mass >= this.criticalMass ? true : isGasGiant;
     // initial value for the change in mass (updated via `addMass`)

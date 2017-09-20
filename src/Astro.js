@@ -1,7 +1,7 @@
-import './constants';
+import * as C from './constants';
 
 // NOTE: This file is not currently used, but the plan is in the works.
-// This is ported directly from StarGen's (http://eldacur.com/~brons/NerdCorner/StarGen/StarGen.html) `enviro` utilities
+// Currently, all contents that of StarGen's (http://eldacur.com/~brons/NerdCorner/StarGen/StarGen.html)
 
 const pow2 = v => v * v;
 const pow3 = v => v * v * v;
@@ -10,16 +10,22 @@ const pow1_4 = v => Math.pow(v, 1/4);
 export const luminosity = mass => {
   const n = mass < 1
   	? 1.75 * (mass - 0.1) + 3.325
-  	: n = 0.5 * (2.0 - mass) + 4.4;
+  	: 0.5 * (2.0 - mass) + 4.4;
 
   return Math.pow(mass, n);
 }
 
 export const volumeRadius = (mass, density) => {
   let volume = 0;
-  mass = mass * this.solarMassInGrams;
+  mass = mass * C.SOLAR_MASS_IN_GRAMS;
   volume = mass / density;
-  return Math.pow((3 * volume) / (4 * Math.PI), 1/3) / this.CMinKM;
+  return Math.pow((3 * volume) / (4 * Math.PI), 1/3) / C.CM_PER_KM;
+}
+
+export const orbitalZone = (radius, lum = luminosity(1)) => {
+  if(radius < (4.0 * Math.sqrt(lum))) return 1;
+  if(radius < (15.0 * Math.sqrt(lum))) return 2;
+  return 3;
 }
 
 /**
@@ -33,36 +39,34 @@ export const volumeRadius = (mass, density) => {
  *	 pp.833-843, 1936 for the derivation.  Specifically, this is Kothari's
  *	 eq.23, which appears on page 840
  *
- * massInSU - The mass of the body in stellar units
  */
-export const kothariRadius = (massInSU, isGasGiant, zone) => {
+export const kothariRadius = (mass, zone, isGasGiant) => {
   let atomicWeight, atomicNum, term, term1, term2;
 
-  switch(zone) {
-  case 1:
-    	atomicWeight = isGasGiant ? 9.5 : 15;
-    	atomicNum = isGasGiant ? 4.5 : 8;
-    break;
-  case 2:
+  if(zone === 1) {
+    atomicWeight = isGasGiant ? 9.5 : 15;
+    atomicNum = isGasGiant ? 4.5 : 8;
+  }
+
+  if(zone === 2) {
     atomicWeight = isGasGiant ? 2.47 : 10;
     atomicNum = isGasGiant ? 2 : 5;
-    break;
-  case 3:
+  }
+
+  if(zone === 3) {
     atomicWeight = isGasGiant ? 7 : 10;
     atomicNum = isGasGiant ? 4 : 5;
   }
 
   term1 = atomicWeight * atomicNum;
-  term = (2 * this.BETA_20 * Math.pow(this.solarMassInGrams, 1/3)) / (this.A1_20 * Math.pow(term1, 1/3));
+  term = (2 * C.BETA_20 * Math.pow(C.SOLAR_MASS_IN_GRAMS, 1/3)) / (C.A1_20 * Math.pow(term1, 1/3));
 
-  term2 = this.A2_20 * Math.pow(atomicWeight, 4/3) * Math.pow(this.solarMassInGrams, 2/3);
-  term2 = term2 * Math.pow(massInSU, 2/3);
-  term2 = term2 / (this.A1_20 * Math.pow(atomicNum, 2));
+  term2 = C.A2_20 * Math.pow(atomicWeight, 4/3) * Math.pow(C.SOLAR_MASS_IN_GRAMS, 2/3);
+  term2 = term2 * Math.pow(mass, 2/3);
+  term2 = term2 / (C.A1_20 * Math.pow(atomicNum, 2));
 
   term = term / term2;
-  term = (term * Math.pow(massInSU, 1/3)) / this.CMinKM;
-
-  // term /= this.JIMS_FUDGE;
+  term = (term * Math.pow(mass, 1/3)) / C.CM_PER_KM;
 
   return term;
 }
@@ -74,7 +78,7 @@ export const kothariRadius = (massInSU, isGasGiant, zone) => {
 export const empiricalDensity = (orbRadius, rEcosphere, gasGiant) => {
   let term;
 
-  term = Math.pow(mass * this.solarMassEarthMass, 1/8);
+  term = Math.pow(mass * C.solarMassEarthMass, 1/8);
   term = term * Math.sqrt(Math.sqrt(rEcosphere, orbRadius));
 
   return gasGiant ? term * 1.2 : term * 5.5;
@@ -86,8 +90,8 @@ export const empiricalDensity = (orbRadius, rEcosphere, gasGiant) => {
 /*--------------------------------------------------------------------------*/
 export const volumeDensity = (mass, maxRadius) => {
   let volume;
-  mass = mass * this.solarMassInGrams;
-  maxRadius = maxRadius * this.CMinKM;
+  mass = mass * C.SOLAR_MASS_IN_GRAMS;
+  maxRadius = maxRadius * C.CM_PER_KM;
   volume = (4 * Math.PI * Math.pow(maxRadius, 3)) / 3;
   return mass / volume;
 }
@@ -99,7 +103,7 @@ export const volumeDensity = (mass, maxRadius) => {
 export const period = (separation, smallMass, largeMass) => {
   let periodInYears;
   periodInYears = Math.sqrt(Math.pow(separation, 3) / (smallMass + largeMass));
-  return periodInYears * this.daysInYear;
+  return periodInYears * C.daysInYear;
 }
 
 /**
@@ -120,9 +124,9 @@ export const period = (separation, smallMass, largeMass) => {
  * The length of the day is returned in units of hours.
  */
 export const dayLength = planet => {
-  const planetMassInGrams = planet.mass * this.solarMassInGrams;
-  const equatorialRadiusInCm = planet.radius * this.CMinKM;
-  const YearInHours = planet.orbPeriod || this.period(planet.axis, planet.mass, 1);
+  const planetMassInGrams = planet.mass * C.SOLAR_MASS_IN_GRAMS;
+  const equatorialRadiusInCm = planet.radius * C.CM_PER_KM;
+  const YearInHours = planet.orbPeriod || C.period(planet.axis, planet.mass, 1);
   const giant = planet.giant || false;
   const k2 = giant ? 0.24 : 0.33;
   let stopped = false;
@@ -137,7 +141,7 @@ export const dayLength = planet => {
 
   baseAngularVelocity = Math.sqrt(2 * J * planetMassInGrams) / (k2 * Math.pow(equatorialRadiusInCm, 2));
 
-  changeInAngularVelocity = this.changeInEarthAngVel * (planet.density / earthDensity);
+  changeInAngularVelocity = C.changeInEarthAngVel * (planet.density / earthDensity);
   changeInAngularVelocity *= (equatorialRadiusInCm / earthRadius) * (earthMassInGrams / planetMassInGrams);
   changeInAngularVelocity *= Math.pow(planet.sun.mass, 2) * (1 / Math.pow(planet.axis, 6));
 
@@ -145,10 +149,10 @@ export const dayLength = planet => {
 
   if(angVelocity <= 0.0) {
     stopped = true;
-    dayInHours = this.veryLargeNumber;
+    dayInHours = C.veryLargeNumber;
   }
   else {
-    dayInHours = this.radiansPerRotation / (secondsPerHour * angVelocity);
+    dayInHours = C.radiansPerRotation / (secondsPerHour * angVelocity);
   }
 
   if(dayInHours >= YearInHours || stopped) {

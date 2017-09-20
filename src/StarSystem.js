@@ -4,17 +4,23 @@ import DustCloud from './DustCloud';
 import Planetismal from './Planetismal';
 
 export default class StarSystem {
-  constructor(stellarMass) {
+  constructor() {
     this.mass = 1;
     this.luminosity = 1;
-    this.planets = [];
     this.matter = new DustCloud(this.luminosity);
+    this.planets = [];
   }
 
   create() {
     let i = 0;
-    while(this.matter.hasDust && this.matter.mass > 0 && i++ < MAX_SYSTEM_ITERATIONS) this.injectNucleus();
-    console.log(this.matter.mass);
+    while(this.matter.hasDust && this.matter.mass > 0 && i++ < MAX_SYSTEM_ITERATIONS) {
+      this.injectNucleus();
+      // process.stdout.write([
+      //   String.fromCharCode(27) + '[2K',
+      //   String.fromCharCode(27) + '[0G',
+      //   100*i/MAX_SYSTEM_ITERATIONS + '%'
+      // ].join(''));
+    }
     return this;
   }
 
@@ -35,10 +41,11 @@ export default class StarSystem {
     // TODO: track successive "duds", use this to break instead of top-level loop cap (MAX_SYSTEM_ITERATIONS)
     if(n.mass <= PROTOPLANET_MASS) return;
 
-    this.planets.unshift(n);
+    this.planets.push(n);
 
     this.planets = this.planets.reduce((out, p, i) => {
       const collisionIdx = this.hasCollision(p, out);
+
       if(i >= 1 && collisionIdx >= 0) {
         return out.slice(0, collisionIdx)
           .concat(this.coalescePlanetismals(p, this.planets[collisionIdx]))
@@ -51,13 +58,12 @@ export default class StarSystem {
   }
 
   hasCollision(p1, planets = this.planets) {
-    const p1_p = p1.perihelion - p1.xp;
     const p1_a = p1.aphelion + p1.xa;
 
     return planets.findIndex(p2 => {
-      const p2_p = p2.perihelion - p2.xp;
       const p2_a = p2.aphelion + p2.xa;
-      return p1_a >= p2_a && p1_p <= p2_p || p2_a >= p1_a && p2_p <= p1_p;
+      return p1_a - p2_a > 0 && p1_a - p2_a <= p1.xp ||
+        p2_a - p1_a > 0 && p2_a - p1_a <= p2.xp;
     });
   }
 
