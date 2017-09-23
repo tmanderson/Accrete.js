@@ -1,8 +1,8 @@
 import { A, α, K, B, W, N, SOLAR_MASS_IN_EARTH_MASS, PROTOPLANET_MASS } from './constants';
 
 export default class Planetismal {
-  get perihelion() { return this.a - this.a * this.e; };
-  get aphelion() { return this.a + this.a * this.e };
+  get perihelion() { return this.a * (1 - this.e); };
+  get aphelion() { return this.a * (1 + this.e); };
 
   get xp() { return this.perihelion * this.quadMass; };
   get xa() { return this.aphelion * this.quadMass; };
@@ -12,7 +12,7 @@ export default class Planetismal {
 
   get criticalMass() {
     const m_c = B * Math.pow(this.perihelion, -3/4);
-    // const num = K * A * Math.pow(-α * Math.pow(this.a, 1/N));
+    // const num = K * A * Math.pow(-α * Math.pow(this.a, 1/3));
     // const den = 1 + Math.sqrt(m_c/this.mass) * (K - 1);
     // return num/den;
     return m_c;
@@ -46,12 +46,18 @@ export default class Planetismal {
     const { aphelion, perihelion, xa, xp } = this;
     const t1 = (W * (aphelion + xa))/(1 - W);
     const t2 = (W * (perihelion - xp))/(1 + W);
-
     return 2 * this.a * this.e + xa + xp + t1 + t2;
   }
 
   bandVolume() {
     return 2 * Math.PI * this.bandwidth() * (this.xa + this.xp);
+  }
+
+  // Dole's discrete mass function of the mass
+  massDensity(p) {
+    const t1 = (8 * Math.PI * Math.pow(this.a, N) * p * this.quadMass) / (1 - W * W);
+    const t2 = (this.e + this.quadMass + W + W * this.e * this.quadMass);
+    return (t1 * t2);
   }
 
   addMass(m) {

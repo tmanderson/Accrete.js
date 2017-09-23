@@ -1,7 +1,7 @@
 import { A, α, K, N, ϴ } from './constants';
 import { Γ } from './utils';
 
-const band = (lower, upper, dust = true, gas = true) => ({ lower, upper, gas, dust });
+const band = (lower, upper, dust = true, gas = true) => ({ lower, upper, gas, dust, width: upper - lower });
 
 export default class DustCloud {
   get hasDust() { return this.bands.filter(b => b.dust).length > 0; };
@@ -28,12 +28,13 @@ export default class DustCloud {
     return r3 * Math.exp(-α * Math.pow(radialDistance, 1/N));
   }
 
-  containsDust(l, u, includeGas = false) {
+  containsDust(p) {
+    const l = p.perihelion - p.xp;
+    const u = p.aphelion + p.xa;
+
     return this.bands
-      .reduce((hasDust, b) => {
-        return ((l <= b.lower && u >= b.upper) || (b.lower <= l && b.upper >= u))
-          && (hasDust || (b.dust || (includeGas && b.gas)));
-      }, false);
+      .reduce((hasDust, b) =>
+        hasDust || (b.dust && (u > b.upper - p.xa && l < b.lower + p.xp)), false);
   }
 
   sweep(p) {
@@ -42,41 +43,55 @@ export default class DustCloud {
     const includeGas = p.isGasGiant;
     const l = p.perihelion - p.xp;
     const u = p.aphelion + p.xa;
-    const d = this.densityAt(l + (u - l)/2, p.mass, p.criticalMass, includeGas);
+    const width = u - l;
 
     this.bands = this.bands.reduce((bands, b) => {
-      if(!b.dust || includeGas && !b.gas) return bands.concat(b);
       // If the band is out-of-range, then the sweep has no effect (band remains)
-      if(l > b.upper || u < b.lower) return bands.concat(b);
-      // If the sweep is completely within the band, split the band in two
-      else if(l > b.lower && u < b.upper) {
-        accumulatedDensity += d;
-        return bands.concat([
-          band(b.lower, l, b.dust, b.gas),
-          band(l, u, false, !includeGas),
-          band(u, b.upper, b.dust, b.gas)
-        ]);
-      }
-      // If the sweep consumes the entire band up to the sweep's upper bounds, drop the band's lower
-      else if(l < b.lower && u <= b.upper) {
-        accumulatedDensity += d;
-        return bands.concat([
-          band(b.lower, u, false, !includeGas),
-          band(u, b.upper, b.dust, b.gas)
-        ]);
-      }
-      // If the sweep consumes the entire band down to the sweep's lower bounds, drop the band's upper
-      else if(l > b.lower && u >= b.upper) {
-        accumulatedDensity += d;
-        return bands.concat([
-          band(b.lower, l, b.dust, b.gas),
-          band(l, b.upper, false, !includeGas)
-        ]);
-      }
+      if((l > b.upper || u < b.lower) || !b.dust) return bands.concat(b);
+      // sweep's lower bounds to band's outer bounds
+      if(b.upper - u < 0 && l - b.lower > 0) {
+        accumulatedDensity += this.densityAt(
+          (b.upper - l)/2,
+          p.mass,
+          p.criticalMass,
+          includeGas
+        ) * (b.upper - l)/b.width;
 
-      accumulatedDensity += d;
-      // At this point the ENTIRE band was "swept", so it is gone
-      return bands.concat(band(b.lower, b.upper, false, !includeGas));
+        return bands.concat([
+          band(b.lower, l, b.dust, b.gas),
+          band(l, b.upper, false, b.gas)
+        ]);
+      }
+      // band's lower bounds to the sweep's upper
+      else if(b.lower - l >= 0 && b.upper - u >= 0) {
+        accumulatedDensity += this.densityAt(
+          (u - b.lower)/2,
+          p.mass,
+          p.criticalMass,
+          includeGas
+        ) * (u - b.lower)/b.width;
+
+        return bands.concat([
+          band(b.lower, u, false, b.gas),
+          band(u, b.upper, b.dust, b.gas)
+        ]);
+      }
+      // sweep's lower to sweep's upper
+      else if(b.upper - u >= 0 && l - b.lower >= 0) {
+        accumulatedDensity += this.densityAt(
+          (u - l)/2,
+          p.mass,
+          p.criticalMass,
+          includeGas
+        ) * width/b.width;
+
+        return bands.concat([
+          band(b.lower, l, b.dust, b.gas),
+          band(l, u, false, b.gas),
+          band(u, b.upper, b.dust, b.gas)
+        ]);
+      }
+      return bands.concat(b);
     }, [])
       // Sort the dust bands from centermost to outward
       .sort((a, b) => a.lower - b.lower)

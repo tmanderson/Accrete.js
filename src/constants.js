@@ -6,11 +6,11 @@ export const MAX_SYSTEM_ITERATIONS = 100000;
 */
 
 // Initial mass-of-matter in solar masses per cubic A.U. (`A` in Dole's paper)
-export const A = 0.0015; // Dole's paper tests ranges between 0.001, 0.015
+export const A = 0.0015; // Dole's paper tests ranges between 0.00125 and 0.015
 // The dust-to-gas ratio (dust/gas = K)
 export const K = 50;
 // Eccentricity of dust cloud
-export const W = 0.25; // 0.2 - 0.25;
+export const W = 0.23; // 0.15 - 0.25;
 // Negative exponential coefficient (EXPLANATION?) used in calculating dust density
 export const α = 5; // alpha in Dole's paper
 // Used in calculating dust density (as the nth root of the radius, r)

@@ -1,7 +1,7 @@
 <html>
 <head>
 	<title>ACCRETE</title>
-	<script src="dist/accrete.min.js"></script>
+
   <style>
     html, body, canvas {
       padding: 0;
@@ -15,19 +15,38 @@
   <button>Generate Star System</button>
   <canvas></canvas>
   <script>
-    const canvas = document.querySelector('canvas');
+    var accrete = new Worker('dist/accrete.min.js');
+    var canvas = document.querySelector('canvas');
     canvas.height = document.body.offsetHeight;
     canvas.width = document.body.offsetWidth;
 
-    const ctx = canvas.getContext('2d');
+    var ctx = canvas.getContext('2d');
+    ctx.font = '12px monospace';
+    var btn = document.querySelector('button');
+    var loadingInterval;
 
-    document.querySelector('button').onclick = function() {
-      var planets = Accrete.generatePlanets();
-      var s = 40/canvas.width;
+    btn.onclick = function(e) {
+      accrete.postMessage('generatePlanets');
+      e.target.disabled = true;
+      var i = 0;
+
+      loadingInterval = setInterval(function() {
+        var l = ((e.target.innerText.match(/\.+$/) || [])[1] || '').length;
+        i += 1;
+        e.target.innerText = 'Generating' + (new Array(i%4)).fill('.').join('');
+      }, 500);
+    };
+
+    accrete.onmessage = function(e) {
+      btn.disabled = false;
+      btn.innerText = 'Generate Star System';
+      clearInterval(loadingInterval);
+
+      const planets = e.data;
+      var s = 50/canvas.width;
       var inc = 100;
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-
 
       for(var i = 0; i < canvas.width; i += inc) {
         ctx.moveTo(i, 0);
@@ -37,26 +56,48 @@
         ctx.fillText((i * s).toFixed(2) + ' AU', i, 10);
       }
 
-      planets.sort((p1, p2) => p1.a - p2.a)
+      planets
         .filter(p => (p.earthMass > 10e-3))
-        .forEach((p, i) => {
+        .map((p, i) => {
           var x = 20 + (p.a/s - 20);
           var y = document.body.offsetHeight/2;
           var r = 200 * canvas.width/canvas.height * Math.pow(p.mass, 1/4);
-          var m = p.earthMass.toFixed(2);
+          var a = p.a.toFixed(2) + ' AU';
+          var m = p.earthMass.toFixed(2) + ' M⊕';
 
           var shade = Math.floor((0.6*planets.length - i)/planets.length * 255);
           var rgba = [shade, shade, shade, 1];
 
+          return {
+            x: x,
+            y: 50,
+            r: r,
+            m: p.m,
+            a: p.a,
+            fill: rgba,
+            dist_label: a,
+            mass_label: m
+          };
+        })
+        .forEach((p, i, planets) => {
+          // quick'n' dirty displacement (so labels don't get covered up)
+          var dy = planets.reduce((t, p2, j) => {
+            if(j > i && Math.abs(p2.a - p.a) < p2.r) return t + p2.r + p.r + 10;
+            return t;
+          }, 0);
+
+          var y = Math.max(2*p.r, Math.min(canvas.height - 2*p.r - 10, p.y + dy));
+
           ctx.beginPath();
-          ctx.fillStyle = 'rgba(' + rgba.join(',') + ')';
-          ctx.arc(x, y, r, 0, 2 * Math.PI, false);
+          ctx.fillStyle = 'rgba(' + p.fill.join(',') + ')';
+          ctx.arc(p.x, y, p.r, 0, 2 * Math.PI, false);
           ctx.fill();
 
           ctx.fillStyle = 'black';
-          ctx.fillText(m, x - ctx.measureText(m).width/2, y + r + 10);
+          ctx.fillText(p.mass_label, p.x - ctx.measureText(p.mass_label).width/2, y + p.r + 10);
+          ctx.fillText(p.dist_label, p.x - ctx.measureText(p.dist_label).width/2, y + p.r + 20);
         });
-    };
+    }
   </script>
 </body>
 </html>
