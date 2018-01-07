@@ -1,7 +1,7 @@
 # ACCRETE (Update 0.1.0)
 ### Planetary system creation simulation in the browser, or the server.
 
-The codebase has been completely reimplemented from scratch in a form that more **closely resembles that put forth in the original Dole paper**.
+The codebase has been completely reimplemented from scratch in a form that more [**closely resembles that put forth in the original Dole paper**](http://www.rand.org/pubs/papers/2005/P4226.pdf).
 
 ### Usage
 
@@ -37,9 +37,9 @@ const planets = system.planets;
 
 ### History of Ac(c)rete
 
-Accrete.js is an implementation of the awesome planetary system simulation algorithm, [Accrete](http://www.rand.org/pubs/papers/P4226.html) in JavaScript. Originally published* and partly programmed (via FORTRAN) by the amazing Stephen H. Dole. Almost a decade later Carl Sagan and Richard Isaacson refined Dole's model -- which shortly thereafter was also implemented in FORTRAN, and again elaborately and academically published by Martin Fogg.
+Accrete.js is an implementation of the awesome planetary system simulation algorithm, [Accrete](http://www.rand.org/pubs/papers/P4226.html) in JavaScript. Originally published* and partly programmed (via FORTRAN) by the amazing Stephen H. Dole. Almost a decade later Carl Sagan and Richard Isaacson refined Dole's model -- which shortly thereafter was also implemented in FORTRAN, and again elaborately and academically published by Martin Fogg in his paper ["Extra-Solar Planetary Systems"](https://www.academia.edu/4173808/Extra-Solar_Planetary_Systems_A_Microcomputer_Simulation).
 
-The late 80's came and Matt Burdick brought this priceless program to the masses (via Turbo Pascal and C). Since then, many versions of *Accrete* have popped up around the internet, adding varying degrees of planetary specifics the most notable (and ingenious) being [Jim Burrow's](http://www.eldacur.com/~brons/) implementation [StarGen](http://www.eldacur.com/~brons/NerdCorner/StarGen/StarGen.html). [Ian Burrell's](http://znark.com/) [Java port](http://znark.com/create/accrete.html) is another great up-to-date example (and was of great help on Accrete's original implementation).
+The late 80's came and Matt Burdick brought this priceless program to the masses (via Turbo Pascal and C). Since then, many versions of *Accrete* have popped up around the internet, adding varying degrees of planetary specifics – the most notable (and ingenious) being [Jim Burrow's](http://www.eldacur.com/~brons/) implementation [StarGen](http://www.eldacur.com/~brons/NerdCorner/StarGen/StarGen.html). [Ian Burrell's](http://znark.com/) [Java port](http://znark.com/create/accrete.html) is another great example (and was of great help on Accrete's previous implementation).
 
 ### THANK YOU
 Nothing here could have ever (ever, ever, ever) been done without the following amazing, generous, and brilliant people:
@@ -52,5 +52,3 @@ Nothing here could have ever (ever, ever, ever) been done without the following 
 - Jim Burrow
 - Ian Burrell
 - The many brilliant minds that have contributed their knowlege to, and insights into our awe-inspiring universe.
-
-* The original Dole Paper can be [viewed here](http://www.rand.org/pubs/papers/2005/P4226.pdf).
