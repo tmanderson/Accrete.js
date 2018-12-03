@@ -1,19 +1,26 @@
-import StarSystem from './StarSystem';
+import StarSystem from "./StarSystem";
 
 export const System = StarSystem;
 
+let isWorker = false;
+try {
+  isWorker = !!self;
+} catch (e) {
+  console["error" in console ? "error" : "log"](`ERROR: ${e}`);
+}
+
 export const generatePlanets = () => {
   const system = new StarSystem();
-  return system.create().planets.map(p => Object.assign({}, p, { earthMass: p.earthMass }));
-}
+  const planets = system.create().planets;
+  if (isWorker)
+    return planets.map(p =>
+      Object.assign({}, { earthMass: p.earthMass, radius: p.radius }, p)
+    );
+  return planets;
+};
 
-let isWorker;
-try { window.navigator }
-catch(e) { isWorker = !!self; }
-if(isWorker) {
+if (isWorker) {
   self.onmessage = function() {
     postMessage(generatePlanets());
-  }
+  };
 }
-
-// console.log(generatePlanets().map(p => [p.a, p.earthMass]).sort(([d1], [d2]) => d1 - d2));

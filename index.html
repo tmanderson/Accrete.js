@@ -60,7 +60,7 @@
         .filter(p => (p.earthMass > 10e-3))
         .map((p, i) => {
           var x = 20 + (p.a/s - 20);
-          var y = document.body.offsetHeight/2;
+          var y = document.body.offsetHeight / 2;
           var r = 200 * canvas.width/canvas.height * Math.pow(p.mass, 1/4);
           var a = p.a.toFixed(2) + ' AU';
           var m = p.earthMass.toFixed(2) + ' M⊕';
@@ -86,12 +86,12 @@
             return t;
           }, 0);
 
-          var y = Math.max(2*p.r, Math.min(canvas.height - 2*p.r - 10, p.y + dy));
+          var y = Math.max(2 * p.r, Math.min(canvas.height - 2*p.r - 10, p.y + dy));
 
           ctx.beginPath();
           ctx.fillStyle = 'rgba(' + p.fill.join(',') + ')';
           ctx.arc(p.x, y, p.r, 0, 2 * Math.PI, false);
-          ctx.fill();
+          ctx.stroke();
 
           ctx.fillStyle = 'black';
           ctx.fillText(p.mass_label, p.x - ctx.measureText(p.mass_label).width/2, y + p.r + 10);
