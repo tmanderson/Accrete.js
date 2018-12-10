@@ -11,37 +11,31 @@ import {
 import { kothariRadius, orbitalZone } from "./Astro";
 
 export default class Planetismal {
-  get perihelion() {
+  get rp() {
     return this.a * (1 - this.e);
   }
-  get aphelion() {
+  get ra() {
     return this.a * (1 + this.e);
   }
 
   get xp() {
-    return this.perihelion * this.quadMass;
-  }
-  get xa() {
-    return this.aphelion * this.quadMass;
+    return 1 - this.quadMass;
   }
 
-  get relativeMass() {
+  get xa() {
+    return 1 + this.quadMass;
+  }
+
+  get normalizedMass() {
     return this.mass / (1 + this.mass);
   }
+
   get earthMass() {
     return this.mass * SOLAR_MASS_IN_EARTH_MASS;
   }
 
-  get radius() {
-    return kothariRadius(this.mass, 1, this.isGasGiant);
-  }
-
   get criticalMass() {
-    const m_c = B * Math.pow(this.perihelion, -3 / 4);
-    // const num = K * A * Math.pow(-α * Math.pow(this.a, 1/3));
-    // const den = 1 + Math.sqrt(m_c/this.mass) * (K - 1);
-    // return num/den;
-    return m_c;
+    return B * Math.pow(this.rp, -3 / 4);
   }
 
   /**
@@ -66,21 +60,25 @@ export default class Planetismal {
     // initial mass
     this.mass = mass;
     // the quad-root of normalized mass (mass/(mass + 1))
-    this.quadMass = Math.pow(this.relativeMass, 1 / 4);
+    // Used for gravitational attraction of planetismal
+    this.quadMass = Math.pow(this.normalizedMass, 1 / 4);
     // is this a gas giant?
-    this.isGasGiant = mass >= this.criticalMass ? true : isGasGiant;
+    this.isGasGiant = mass >= this.criticalMass ? true : !!isGasGiant;
     // initial value for the change in mass (updated via `addMass`)
     this.deltaMass = 1;
   }
 
   bandwidth() {
-    const { aphelion, perihelion, xa, xp } = this;
-    const t1 = (W * (aphelion + xa)) / (1 - W);
-    const t2 = (W * (perihelion - xp)) / (1 + W);
+    const { ra, rp, xa, xp } = this;
+    const t1 = (W * (ra + xa)) / (1 - W);
+    const t2 = (W * (rp - xp)) / (1 + W);
     return 2 * this.a * this.e + xa + xp + t1 + t2;
   }
 
-  bandVolume() {
+  sweepVolume() {
+    // const term1 = 4.0 * Math.PI * this.a * this.a;
+    // const term2 = (1.0 - this.e * density);
+    // const volume = term1 * this.quadMass * () * term2;
     return 2 * Math.PI * this.bandwidth() * (this.xa + this.xp);
   }
 
@@ -94,10 +92,10 @@ export default class Planetismal {
 
   addMass(m) {
     this.deltaMass = this.mass + m - this.mass;
-    this.quadMass = Math.pow(this.relativeMass, 1 / 4);
+    this.quadMass = Math.pow(this.normalizedMass, 1 / 4);
     this.mass = this.mass + m;
 
-    // The original Dole paper has this as B * Math.pow(perihelion, -3/4)
+    // The original Dole paper has this as B * Math.pow(rp, -3/4)
     if (!this.isGasGiant && this.mass >= this.criticalMass)
       this.isGasGiant = true;
     return this;

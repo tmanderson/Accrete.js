@@ -1,11 +1,4 @@
-import {
-  N,
-  K,
-  W,
-  Q,
-  PROTOPLANET_MASS,
-  MAX_SYSTEM_ITERATIONS
-} from "./constants";
+import { Q, PROTOPLANET_MASS, MAX_SYSTEM_ITERATIONS } from "./constants";
 import { rand } from "./utils";
 import DustCloud from "./DustCloud";
 import Planetismal from "./Planetismal";
@@ -20,15 +13,11 @@ export default class StarSystem {
 
   create() {
     let i = 0;
-    const initialMass = this.matter.mass;
 
-    while (
-      this.matter.hasDust &&
-      this.matter.mass > 0 &&
-      i++ < MAX_SYSTEM_ITERATIONS
-    ) {
+    while (this.matter.hasDust && i++ < MAX_SYSTEM_ITERATIONS) {
       this.injectNucleus();
       this.planets = this.checkCollisions(this.planets);
+      // cmdline output
       // process.stdout.write([
       //   String.fromCharCode(27) + '[2K',
       //   String.fromCharCode(27) + '[0G',
@@ -52,20 +41,9 @@ export default class StarSystem {
   collectDust(n) {
     let p = this.matter.sweep(n);
 
-    while (
-      this.matter.hasDust &&
-      this.matter.mass > 0 &&
-      this.matter.containsDust(n) &&
-      p > 0
-    ) {
-      // const dm = p * n.bandVolume();
-      // n.addMass(dm);
-      // this.matter.mass -= dm;
-      // if(dm < n.mass * 1e-4) break;
-      const newMass = n.massDensity(p);
-      n.addMass(newMass - n.mass);
-      this.matter.mass -= n.deltaMass;
-      if (n.deltaMass < n.mass * 1e-4) break;
+    while (this.matter.containsDust(n) && p > 0) {
+      n.addMass(p * n.sweepVolume());
+      if (n.deltaMass < n.mass * 1e-4) return null;
       p = this.matter.sweep(n);
     }
 
@@ -88,11 +66,11 @@ export default class StarSystem {
   }
 
   hasCollision(p1, planets = this.planets) {
-    const p1_p = p1.perihelion - p1.xp;
-    const p1_a = p1.aphelion + p1.xa;
+    const p1_p = p1.rp - p1.xp;
+    const p1_a = p1.ra + p1.xa;
 
     return planets.findIndex(
-      p2 => p1_a > p2.aphelion - p1.xa && p1_p < p2.perihelion + p1.xp
+      p2 => p1_a > p2.ra - p1.xa && p1_p < p2.rp + p1.xp
     );
   }
 

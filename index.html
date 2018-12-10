@@ -1,103 +1,133 @@
 <html>
-<head>
-	<title>ACCRETE</title>
+  <head>
+    <title>ACCRETE</title>
 
-  <style>
-    html, body, canvas {
-      padding: 0;
-      margin: 0;
-      height: 100vh;
-      width: 100vw;
-    }
-  </style>
-</head>
-<body>
-  <button>Generate Star System</button>
-  <canvas></canvas>
-  <script>
-    var accrete = new Worker('dist/accrete.min.js');
-    var canvas = document.querySelector('canvas');
-    canvas.height = document.body.offsetHeight;
-    canvas.width = document.body.offsetWidth;
+    <style>
+      html,
+      body,
+      canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        padding: 0;
+        margin: 0;
+        height: 100vh;
+        width: 100vw;
+        z-index: 0;
+      }
+      button {
+        position: relative;
+        z-index: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <button>Generate Star System</button> <canvas></canvas>
+    <script>
+      var accrete = new Worker("dist/accrete.min.js");
+      var canvas = document.querySelector("canvas");
+      canvas.height = document.body.offsetHeight;
+      canvas.width = document.body.offsetWidth;
 
-    var ctx = canvas.getContext('2d');
-    ctx.font = '12px monospace';
-    var btn = document.querySelector('button');
-    var loadingInterval;
+      const hscale =
+        (canvas.width % 3 === 0 ? canvas.width - 1 : canvas.width) / 3;
+      const vscale =
+        (canvas.height % 2 === 0 ? canvas.height - 1 : canvas.height) / 2;
+      const rscale = hscale / 30;
 
-    btn.onclick = function(e) {
-      accrete.postMessage('generatePlanets');
-      e.target.disabled = true;
-      var i = 0;
+      var ctx = canvas.getContext("2d");
+      ctx.font = "12px monospace";
+      var btn = document.querySelector("button");
+      var loadingInterval;
 
-      loadingInterval = setInterval(function() {
-        var l = ((e.target.innerText.match(/\.+$/) || [])[1] || '').length;
-        i += 1;
-        e.target.innerText = 'Generating' + (new Array(i%4)).fill('.').join('');
-      }, 500);
-    };
+      btn.onclick = function(e) {
+        accrete.postMessage("generatePlanets");
+        e.target.disabled = true;
+        var i = 0;
 
-    accrete.onmessage = function(e) {
-      btn.disabled = false;
-      btn.innerText = 'Generate Star System';
-      clearInterval(loadingInterval);
+        loadingInterval = setInterval(function() {
+          var l = ((e.target.innerText.match(/\.+$/) || [])[1] || "").length;
+          i += 1;
+          e.target.innerText =
+            "Generating" + new Array(i % 4).fill(".").join("");
+        }, 500);
+      };
 
-      const planets = e.data;
-      var s = 50/canvas.width;
-      var inc = 100;
+      function drawGrid() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const width = hscale * 3;
+        const height = vscale * 2;
 
-      for(var i = 0; i < canvas.width; i += inc) {
-        ctx.moveTo(i, 0);
-        ctx.fillStyle = 'rgba(0,0,0,0.3)';
-        ctx.fillRect(i, 0, 2, canvas.height);
-        ctx.fillStyle = 'rgba(0,0,0,1)';
-        ctx.fillText((i * s).toFixed(2) + ' AU', i, 10);
+        const ticklen = vscale / 10;
+        const ytick = height - ticklen;
+
+        ctx.moveTo(1 * hscale, height);
+        ctx.lineTo(1 * hscale, height - 2 * ticklen);
+        ctx.moveTo(2 * hscale, height);
+        ctx.lineTo(2 * hscale, height - 2 * ticklen);
+        ctx.stroke();
+
+        for (var i = 2; i < 10; i++) {
+          const offset = hscale * Math.log10(i);
+          ctx.moveTo(offset, height);
+          ctx.lineTo(offset, ytick);
+          ctx.moveTo(offset + hscale, height);
+          ctx.lineTo(offset + hscale, ytick);
+          ctx.moveTo(offset + 2 * hscale, height);
+          ctx.lineTo(offset + 2 * hscale, ytick);
+        }
+
+        ctx.stroke();
       }
 
-      planets
-        .filter(p => (p.earthMass > 10e-3))
-        .map((p, i) => {
-          var x = 20 + (p.a/s - 20);
-          var y = document.body.offsetHeight / 2;
-          var r = 200 * canvas.width/canvas.height * Math.pow(p.mass, 1/4);
-          var a = p.a.toFixed(2) + ' AU';
-          var m = p.earthMass.toFixed(2) + ' M⊕';
+      function drawPlanet(p) {
+        ctx.beginPath();
 
-          var shade = Math.floor((0.6*planets.length - i)/planets.length * 255);
-          var rgba = [shade, shade, shade, 1];
+        const au = Math.log10(p.a);
+        const rad = Math.pow(p.earthMass, 1 / 3);
+        const r = rad * rscale;
+        const x0 = au * hscale;
+        const x = x0 + hscale - r;
+        const y = vscale - r;
 
-          return {
-            x: x,
-            y: 50,
-            r: r,
-            m: p.m,
-            a: p.a,
-            fill: rgba,
-            dist_label: a,
-            mass_label: m
-          };
-        })
-        .forEach((p, i, planets) => {
-          // quick'n' dirty displacement (so labels don't get covered up)
-          var dy = planets.reduce((t, p2, j) => {
-            if(j > i && Math.abs(p2.a - p.a) < p2.r) return t + p2.r + p.r + 10;
-            return t;
-          }, 0);
-
-          var y = Math.max(2 * p.r, Math.min(canvas.height - 2*p.r - 10, p.y + dy));
-
-          ctx.beginPath();
-          ctx.fillStyle = 'rgba(' + p.fill.join(',') + ')';
-          ctx.arc(p.x, y, p.r, 0, 2 * Math.PI, false);
+        if (p.isGasGiant) {
+          ctx.arc(x, y, 2 * r, 0, 2 * Math.PI);
           ctx.stroke();
+        } else {
+          ctx.arc(x, y, 2 * r, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+      }
 
-          ctx.fillStyle = 'black';
-          ctx.fillText(p.mass_label, p.x - ctx.measureText(p.mass_label).width/2, y + p.r + 10);
-          ctx.fillText(p.dist_label, p.x - ctx.measureText(p.dist_label).width/2, y + p.r + 20);
-        });
-    }
-  </script>
-</body>
+      drawGrid();
+
+      accrete.onmessage = function(e) {
+        btn.disabled = false;
+        btn.innerText = "Generate Star System";
+        clearInterval(loadingInterval);
+
+        const planets = e.data;
+        var s = 50 / canvas.width;
+        var inc = 100;
+
+        drawGrid();
+        console.log(planets);
+        planets
+          .sort((p1, p2) => p1.a - p2.a)
+          .map((p, i) => {
+            var a = p.a.toFixed(2) + " AU";
+            var m = p.earthMass.toFixed(2) + " M⊕";
+
+            var shade = Math.floor(
+              ((0.6 * planets.length - i) / planets.length) * 255
+            );
+            var rgba = [shade, shade, shade, 1];
+            ctx.fillStyle = `rgba(${rgba.join(",")})`;
+
+            drawPlanet(p);
+          });
+      };
+    </script>
+  </body>
 </html>

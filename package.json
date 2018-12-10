@@ -15,11 +15,14 @@
     "postbuild": "rm -rf ./dist/accrete.tmp.js",
     "watch:src": "watch 'npm run build' src",
     "watch:css": "watch 'npm run build:assets' assets/scss",
-    "watch": "parallelshell 'npm run watch:src' 'npm run watch:css'",
-    "start:dev": "php -S localhost:8080 & npm run watch",
+    "watch": "concurrently 'npm run watch:src'",
+    "start:dev": "concurrently 'php -S localhost:3000' 'npm run watch'",
     "postinstall": "npm run build"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "concurrently": "^4.1.0",
+    "watch": "^1.0.2"
+  },
   "dependencies": {
     "babel": "^6.23.0",
     "babel-cli": "^6.26.0",

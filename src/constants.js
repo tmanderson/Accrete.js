@@ -10,7 +10,7 @@ export const A = 0.0015; // Dole's paper tests ranges between 0.00125 and 0.015
 // The dust-to-gas ratio (dust/gas = K)
 export const K = 50;
 // Eccentricity of dust cloud
-export const W = 0.23; // 0.15 - 0.25;
+export const W = 0.23; // 0 to 0.25;
 // Negative exponential coefficient (EXPLANATION?) used in calculating dust density
 export const α = 5; // alpha in Dole's paper
 // Used in calculating dust density (as the nth root of the radius, r)
@@ -20,7 +20,7 @@ export const N = 3;
 // of orbital eccentricities)
 export const Q = 0.077;
 // For critical mass
-export const B = 12e-5;
+export const B = 1.2e-5; // 1e-5 to 1.2e-5
 // Maximum angular inclination of dust cloud (Dole specifies as ~90 degrees)
 export const ϴ = Math.PI / 2.01;
 
@@ -30,7 +30,7 @@ export const PROTOPLANET_MASS = 1.0e-15; /* Units of solar masses  */
 export const CHANGE_IN_EARTH_ANG_VEL = -1.3e-15; /* Units of radians/sec/year*/
 export const SOLAR_MASS_IN_GRAMS = 1.989e33; /* Units of grams     */
 export const SOLAR_MASS_IN_KILOGRAMS = 1.989e30; /* Units of kg        */
-export const SOLAR_MASS_IN_EARTH_MASS = 1 / 30e-6;
+export const SOLAR_MASS_IN_EARTH_MASS = 332775.64;
 export const EARTH_MASS_IN_GRAMS = 5.977e27; /* Units of grams     */
 export const EARTH_RADIUS = 6.378e8; /* Units of cm        */
 export const EARTH_DENSITY = 5.52; /* Units of g/cc      */
