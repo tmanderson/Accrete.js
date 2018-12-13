@@ -1,10 +1,3 @@
-// Gamma, defined because it can be
-export const Γ = n =>
-  new Array(Math.round(n))
-    .fill(1)
-    .map((_, i) => i || _)
-    .reduce((total, v) => (total *= v));
-
 // Random (distributed with `n`) numbers for node/browser
 export const rand = (min = 0, max = min + 1, n = 2) => {
   const vals = new Uint16Array(Math.round(n));
