@@ -18,7 +18,7 @@ $> npm install && npm build
 
 ```javascript
 <script src="accrete.min.js" />;
-const system = new Accrete.System();
+const system = new Accrete.StarSystem();
 system.create();
 
 const planets = system.planets;
@@ -29,7 +29,7 @@ const planets = system.planets;
 ```javascript
 import Accrete from "Accrete";
 
-const system = new Accrete.System();
+const system = new Accrete.StarSystem();
 system.create();
 const planets = system.planets;
 ```
