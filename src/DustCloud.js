@@ -1,6 +1,4 @@
 import { A, α, K, N, ϴ } from "./constants";
-import { Γ } from "./utils";
-
 const band = (lower, upper, dust = true, gas = true) => ({
   lower,
   upper,
@@ -17,11 +15,6 @@ export default class DustCloud {
   constructor(stellarMass = 1, radius = 50, ratio = K) {
     this.radius = 50;
     this.ratio = ratio;
-
-    let num = 4 * Math.PI * K * A * N * Γ(3 * N);
-    let den = Math.pow(α, 3 * N);
-
-    this.mass = (num / den) * Math.cos(Math.PI / 2 - ϴ) * stellarMass;
     this.bands = [band(0, radius)];
   }
 
