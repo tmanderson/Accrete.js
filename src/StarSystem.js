@@ -13,37 +13,32 @@ export default class StarSystem {
 
   create() {
     let i = 0;
-
     while (this.matter.hasDust && i++ < MAX_SYSTEM_ITERATIONS) {
       this.injectNucleus();
       this.planets = this.checkCollisions(this.planets);
-      // cmdline output
-      // process.stdout.write([
-      //   String.fromCharCode(27) + '[2K',
-      //   String.fromCharCode(27) + '[0G',
-      //   100*i/MAX_SYSTEM_ITERATIONS + '%'
-      // ].join(''));
     }
+    console.log(
+      `Created system of ${this.planets.length} planets after ${i} iterations`
+    );
     return this;
   }
 
   injectNucleus() {
-    const a = rand(
-      0.3 * Math.pow(this.mass, 1 / 3),
-      50.0 * Math.pow(this.mass, 1 / 3)
-    );
-    const e = 1 - Math.pow(1 - rand(), Q);
+    const a = rand(0.3, 50);
+    const e = 1 - Math.pow(rand(), Q);
     const nucleus = new Planetismal(a, e);
     const planet = this.collectDust(nucleus);
     if (planet.mass > PROTOPLANET_MASS) this.planets.push(planet);
   }
 
   collectDust(n) {
-    let p = this.matter.sweep(n);
+    let newMass,
+      p = this.matter.sweep(n);
 
     while (this.matter.containsDust(n) && p > 0) {
-      n.addMass(p * n.sweepVolume());
-      if (n.deltaMass < n.mass * 1e-4) return null;
+      newMass = n.massDensity(p);
+      n.addMass(newMass - n.mass);
+      if (n.deltaMass < n.mass * 1e-4) break;
       p = this.matter.sweep(n);
     }
 
@@ -51,7 +46,7 @@ export default class StarSystem {
   }
 
   checkCollisions(planets = this.planets) {
-    return planets.reduce((out, p, i) => {
+    return planets.reduce((out, p) => {
       const collisionIdx = this.hasCollision(p, out);
 
       if (collisionIdx > -1) {
@@ -69,9 +64,11 @@ export default class StarSystem {
     const p1_p = p1.rp - p1.xp;
     const p1_a = p1.ra + p1.xa;
 
-    return planets.findIndex(
-      p2 => p1_a > p2.ra - p1.xa && p1_p < p2.rp + p1.xp
-    );
+    return planets.findIndex(p2 => {
+      const p2_p = p2.rp - p2.xp;
+      const p2_a = p2.ra + p2.xa;
+      return (p1_p < p2_a && p1_a > p2_p) || (p2_p < p1_a && p2_a > p1_p);
+    });
   }
 
   coalescePlanetismals(p1, p2) {
@@ -82,6 +79,7 @@ export default class StarSystem {
     const term1 = (num1 + num2) / ((p1.mass + p2.mass) * Math.sqrt(a3));
     const e3 = Math.sqrt(Math.abs(1 - term1 * term1));
     const m3 = p1.mass + p2.mass;
-    return this.collectDust(new Planetismal(a3, e3, m3));
+    // return this.collectDust(new Planetismal(a3, e3, m3));
+    return new Planetismal(a3, e3, m3);
   }
 }

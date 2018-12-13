@@ -68,36 +68,45 @@ export default class Planetismal {
     this.deltaMass = 1;
   }
 
-  bandwidth() {
+  bandwidth = () => {
     const { ra, rp, xa, xp } = this;
     const t1 = (W * (ra + xa)) / (1 - W);
     const t2 = (W * (rp - xp)) / (1 + W);
     return 2 * this.a * this.e + xa + xp + t1 + t2;
-  }
-
-  sweepVolume() {
-    // const term1 = 4.0 * Math.PI * this.a * this.a;
-    // const term2 = (1.0 - this.e * density);
-    // const volume = term1 * this.quadMass * () * term2;
+  };
+  /**
+   * As described in the Dole paper, but not used in the final calculations.
+   * The `massDensity` method is what's used
+   */
+  sweepVolume = () => {
     return 2 * Math.PI * this.bandwidth() * (this.xa + this.xp);
-  }
+  };
 
   // Dole's discrete mass function of the mass
-  massDensity(p) {
+  massDensity = p => {
     const t1 =
       (8 * Math.PI * Math.pow(this.a, N) * p * this.quadMass) / (1 - W * W);
     const t2 = this.e + this.quadMass + W + W * this.e * this.quadMass;
     return t1 * t2;
-  }
+  };
 
-  addMass(m) {
-    this.deltaMass = this.mass + m - this.mass;
-    this.quadMass = Math.pow(this.normalizedMass, 1 / 4);
+  addMass = m => {
+    this.deltaMass = m;
     this.mass = this.mass + m;
-
-    // The original Dole paper has this as B * Math.pow(rp, -3/4)
-    if (!this.isGasGiant && this.mass >= this.criticalMass)
-      this.isGasGiant = true;
+    this.quadMass = Math.pow(this.normalizedMass, 1 / 4);
+    this.isGasGiant = this.mass >= this.criticalMass;
     return this;
-  }
+  };
+
+  toJSON = () => {
+    return {
+      xa: this.xa,
+      xp: this.xp,
+      aphelion: this.ra,
+      axis: this.a,
+      eccentricity: this.e,
+      perihelion: this.rp,
+      earthMass: this.earthMass
+    };
+  };
 }
