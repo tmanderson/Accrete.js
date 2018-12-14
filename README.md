@@ -1,4 +1,4 @@
-# ACCRETE (Update 0.1.0)
+# ACCRETE v.1.0.0
 
 ### Planetary system creation simulation in the browser, or the server.
 
@@ -50,7 +50,7 @@ The late 80's came and Matt Burdick brought this priceless program to the masses
 
 ### THANK YOU
 
-Nothing here could have ever (ever, ever, ever) been done without the following amazing, generous, and brilliant people:
+Obviously, this work could not have been completed without the following curious minds:
 
 - Stephen H. Dole
 - Carl Sagan
@@ -59,4 +59,3 @@ Nothing here could have ever (ever, ever, ever) been done without the following 
 - Matt Burdick
 - Jim Burrow
 - Ian Burrell
-- The many brilliant minds that have contributed their knowlege to, and insights into our awe-inspiring universe.
