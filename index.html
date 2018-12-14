@@ -1,139 +1,161 @@
 <html>
+  <head>
+    <title>ACCRETE</title>
 
-<head>
-  <title>ACCRETE</title>
+    <style>
+      html,
+      body,
+      canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        padding: 0;
+        margin: 0;
+        height: 100vh;
+        width: 100vw;
+        z-index: 0;
+      }
 
-  <style>
-    html,
-    body,
-    canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      padding: 0;
-      margin: 0;
-      height: 100vh;
-      width: 100vw;
-      z-index: 0;
-    }
+      button {
+        position: relative;
+        z-index: 1;
+      }
+    </style>
+  </head>
 
-    button {
-      position: relative;
-      z-index: 1;
-    }
-  </style>
-</head>
+  <body>
+    <button>Generate Star System</button> <canvas></canvas>
+    <script>
+      var accrete = new Worker("dist/accrete.worker.js");
+      var canvas = document.querySelector("canvas");
+      canvas.height = document.body.offsetHeight;
+      canvas.width = document.body.offsetWidth;
 
-<body>
-  <button>Generate Star System</button> <canvas></canvas>
-  <script>
-    var accrete = new Worker("dist/accrete.worker.js");
-    var canvas = document.querySelector("canvas");
-    canvas.height = document.body.offsetHeight;
-    canvas.width = document.body.offsetWidth;
+      const hscale = Math.floor(canvas.width / 3);
+      const vscale = Math.floor(canvas.height / 2);
+      const rscale = canvas.width / canvas.height;
 
-    const hscale = Math.floor(canvas.width / 3);
-    const vscale = Math.floor(canvas.height / 2);
-    const rscale = hscale / (0.15 * vscale);
+      var ctx = canvas.getContext("2d");
+      ctx.font = "12px monospace";
+      var btn = document.querySelector("button");
+      var loadingInterval;
 
-    var ctx = canvas.getContext("2d");
-    ctx.font = "12px monospace";
-    var btn = document.querySelector("button");
-    var loadingInterval;
+      btn.onclick = function(e) {
+        accrete.postMessage("GENERATE_PLANETS");
+        e.target.disabled = true;
+        var i = 0;
 
-    btn.onclick = function (e) {
-      accrete.postMessage("GENERATE_PLANETS");
-      e.target.disabled = true;
-      var i = 0;
+        loadingInterval = setInterval(function() {
+          var l = ((e.target.innerText.match(/\.+$/) || [])[1] || "").length;
+          i += 1;
+          e.target.innerText =
+            "Generating" + new Array(i % 4).fill(".").join("");
+        }, 500);
+      };
 
-      loadingInterval = setInterval(function () {
-        var l = ((e.target.innerText.match(/\.+$/) || [])[1] || "").length;
-        i += 1;
-        e.target.innerText =
-          "Generating" + new Array(i % 4).fill(".").join("");
-      }, 500);
-    };
+      function drawGrid() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "black";
 
-    function drawGrid() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = 'black';
-
-      for (var i = 0; i < 3; i++) {
-        const offset = i * hscale;
-        for (var j = 1; j <= 10; j++) {
-          const x = hscale * Math.log10(j);
-          ctx.beginPath();
-          ctx.moveTo(offset + x, canvas.height);
-          ctx.lineTo(offset + x, canvas.height - 50);
-          ctx.stroke();
-          if (i > 0 && j === 1) {
-            const label = `${Math.pow(10, i - 1)} AU`;
-            ctx.fillText(label, offset + x - ctx.measureText(label).width / 2, canvas.height - 70);
+        for (var i = 0; i < 3; i++) {
+          const offset = i * hscale;
+          for (var j = 1; j <= 10; j++) {
+            const x = hscale * Math.log10(j);
+            ctx.beginPath();
+            ctx.moveTo(offset + x, canvas.height);
+            ctx.lineTo(offset + x, canvas.height - 50);
+            ctx.stroke();
+            if (i > 0 && j === 1) {
+              const label = `${Math.pow(10, i - 1)} AU`;
+              ctx.fillText(
+                label,
+                offset + x - ctx.measureText(label).width / 2,
+                canvas.height - 70
+              );
+            }
           }
         }
+
+        ctx.stroke();
       }
 
-      ctx.stroke();
-    }
+      function drawPlanet(p) {
+        ctx.beginPath();
+        ctx.fillStyle = "white";
 
-    function drawPlanet(p) {
-      ctx.beginPath();
-      ctx.fillStyle = 'white';
+        const au = Math.log10(p.axis);
 
-      const au = Math.log10(p.axis);
-      const rad = Math.pow(p.earthMass, 1 / 3);
-      const r = Math.max(1, rad * rscale);
-      const x0 = au * hscale;
-      const x = x0 + hscale - r;
-      const y = vscale - r;
-      const stripeScale = 2;
-      const fh = Math.round(2 * r / stripeScale);
-      const hfh = fh / 2;
+        const rad = Math.pow(p.earthMass, 1 / 3);
+        const r = Math.max(1, rad * rscale);
+        const offset = au * hscale;
 
-      ctx.arc(x, y, r, 0, 2 * Math.PI);
+        const x = offset + hscale - r;
+        const y = vscale - r;
 
-      if (p.isGasGiant) {
-        for (var i = -hfh; i < hfh; i++) {
-          const w = r * Math.cos(i / fh * Math.PI);
-          const h = r * Math.sin(i / fh * Math.PI);
-          ctx.moveTo(x - w, y + h);
-          ctx.lineTo(x + w, y + h);
+        const au_p = Math.log10(p.perihelion - p.xp) * hscale + hscale - r;
+        const au_a = Math.log10(p.aphelion + p.xa) * hscale + hscale - r;
+
+        const stripeScale = 2;
+        const fh = Math.round((2 * r) / stripeScale);
+        const hfh = fh / 2;
+
+        ctx.arc(x, y, r, 0, 2 * Math.PI);
+
+        if (p.isGasGiant) {
+          for (var i = -hfh; i < hfh; i++) {
+            const w = r * Math.cos((i / fh) * Math.PI);
+            const h = r * Math.sin((i / fh) * Math.PI);
+            ctx.moveTo(x - w, y + h);
+            ctx.lineTo(x + w, y + h);
+          }
         }
+
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+
+        ctx.moveTo(x, y + r + 50);
+        ctx.lineTo(x, y + r + 10);
+
+        ctx.moveTo(x, y + r + 50);
+        ctx.lineTo(au_p, y + r + 50);
+        ctx.lineTo(au_p, y + r + 10);
+
+        ctx.moveTo(x, y + r + 50);
+        ctx.lineTo(au_a, y + r + 50);
+        ctx.lineTo(au_a, y + r + 10);
+
+        ctx.stroke();
       }
-
-      ctx.fill();
-      ctx.stroke();
-    }
-
-    drawGrid();
-
-    accrete.onmessage = function (e) {
-      btn.disabled = false;
-      btn.innerText = "Generate Star System";
-      clearInterval(loadingInterval);
-
-      const planets = e.data;
-      var s = 50 / canvas.width;
-      var inc = 100;
 
       drawGrid();
-      console.log(planets.sort((p1, p2) => p1.axis - p2.axis));
-      planets
-        .sort((p1, p2) => p1.axis - p2.axis)
-        .map((p, i) => {
-          var a = p.axis.toFixed(2) + " AU";
-          var m = p.earthMass.toFixed(2) + " M⊕";
 
-          var shade = Math.floor(
-            ((0.6 * planets.length - i) / planets.length) * 255
-          );
-          var rgba = [shade, shade, shade, 1];
-          ctx.fillStyle = `rgba(${rgba.join(",")})`;
+      accrete.onmessage = function(e) {
+        btn.disabled = false;
+        btn.innerText = "Generate Star System";
+        clearInterval(loadingInterval);
 
-          drawPlanet(p);
-        });
-    };
-  </script>
-</body>
+        const planets = e.data;
+        var s = 50 / canvas.width;
+        var inc = 100;
 
+        drawGrid();
+        console.log(planets.sort((p1, p2) => p1.axis - p2.axis));
+        planets
+          .sort((p1, p2) => p1.axis - p2.axis)
+          .map((p, i) => {
+            var a = p.axis.toFixed(2) + " AU";
+            var m = p.earthMass.toFixed(2) + " M⊕";
+
+            var shade = Math.floor(
+              ((0.6 * planets.length - i) / planets.length) * 255
+            );
+            var rgba = [shade, shade, shade, 1];
+            ctx.fillStyle = `rgba(${rgba.join(",")})`;
+
+            drawPlanet(p);
+          });
+      };
+    </script>
+  </body>
 </html>
