@@ -20,11 +20,105 @@
         position: relative;
         z-index: 1;
       }
+
+      aside {
+        display: flex;
+        border-right: 2px solid black;
+        border-bottom: 2px solid black;
+        flex-direction: column;
+        padding: 10px;
+        position: relative;
+        left: 0;
+        top: 0;
+        max-width: 180px;
+        z-index: 2;
+      }
+
+      aside > div {
+        display: flex;
+      }
+
+      aside > div > label {
+        flex: 1 1 auto;
+        width: 20%;
+        max-width: 40%;
+      }
+
+      canvas {
+        position: absolute;
+        left: 0;
+        height: 100vh;
+        top: 0;
+        width: 100vw;
+        z-index: 0;
+      }
     </style>
   </head>
 
   <body>
-    <button>Generate Star System</button> <canvas></canvas>
+    <aside>
+      <div>
+        <label>A</label>
+        <input
+          name="A"
+          type="range"
+          min="0.001"
+          max="0.01"
+          step="0.0005"
+          value="0.0015"
+        />
+      </div>
+      <div>
+        <label>B</label>
+        <input
+          name="B"
+          type="range"
+          min="0.000005"
+          max="0.000012"
+          step="0.000001"
+          value="0.000012"
+        />
+      </div>
+      <div>
+        <label>K</label>
+        <input name="K" type="range" min="25" max="200" step="5" value="50" />
+      </div>
+      <div style="display: none">
+        <label>N</label>
+        <input name="N" type="range" min="3" max="3" step="0.001" value="3" />
+      </div>
+      <div style="display: none;">
+        <label>Q</label>
+        <input
+          name="Q"
+          type="range"
+          min="0.077"
+          max="0.077"
+          step="0.001"
+          value="0.077"
+        />
+      </div>
+      <div>
+        <label>W</label>
+        <input
+          name="W"
+          type="range"
+          min="0.05"
+          max="0.75"
+          step="0.05"
+          value="0.2"
+        />
+      </div>
+      <div style="display: none;">
+        <label>α</label>
+        <input name="ALPHA" type="range" min="5" max="10" step="1" value="5" />
+      </div>
+      <div>
+        <label>Defaults</label> <input type="checkbox" name="default" />
+      </div>
+      <button>Generate Star System</button>
+    </aside>
+    <canvas></canvas>
     <script>
       var accrete = new Worker("dist/accrete.worker.js");
       var canvas = document.querySelector("canvas");
@@ -33,16 +127,19 @@
 
       const hscale = Math.floor(canvas.width / 3);
       const vscale = Math.floor(canvas.height / 2);
-      const rscale = canvas.width / canvas.height;
+      const rscale = canvas.width / (0.5 * canvas.height);
 
       var ctx = canvas.getContext("2d");
       ctx.font = "12px monospace";
       var btn = document.querySelector("button");
       var loadingInterval;
 
-      btn.onclick = function(e) {
-        accrete.postMessage("GENERATE_PLANETS");
-        e.target.disabled = true;
+      function createSystem() {
+        accrete.postMessage(getConstValues());
+        Array.from(document.querySelectorAll("aside input")).forEach(
+          el => (el.disabled = true)
+        );
+        btn.disabled = true;
         var i = 0;
 
         loadingInterval = setInterval(function() {
@@ -51,7 +148,31 @@
           e.target.innerText =
             "Generating" + new Array(i % 4).fill(".").join("");
         }, 500);
-      };
+      }
+
+      btn.onclick = createSystem;
+
+      function getConstValues() {
+        if (document.querySelector('aside input[type="checkbox"]').checked)
+          return {};
+        return Array.from(document.querySelectorAll("aside input")).reduce(
+          (config, el) => {
+            if (el.type === "checkbox" || el.style.display === "none")
+              return config;
+            return Object.assign(config, { [el.name]: parseFloat(el.value) });
+          },
+          {}
+        );
+      }
+
+      document.body.addEventListener(
+        "input",
+        function(e) {
+          if (e.target.tagName !== "INPUT") return;
+          createSystem();
+        },
+        true
+      );
 
       function drawGrid() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -61,10 +182,8 @@
           const offset = i * hscale;
           for (var j = 1; j <= 10; j++) {
             const x = hscale * Math.log10(j);
-            ctx.beginPath();
-            ctx.moveTo(offset + x, canvas.height);
-            ctx.lineTo(offset + x, canvas.height - 50);
-            ctx.stroke();
+            let tickLen = 50;
+
             if (i > 0 && j === 1) {
               const label = `${Math.pow(10, i - 1)} AU`;
               ctx.fillText(
@@ -72,14 +191,21 @@
                 offset + x - ctx.measureText(label).width / 2,
                 canvas.height - 70
               );
+            } else {
+              tickLen = 20;
             }
+
+            ctx.beginPath();
+            ctx.moveTo(offset + x, canvas.height);
+            ctx.lineTo(offset + x, canvas.height - tickLen);
+            ctx.stroke();
           }
         }
 
         ctx.stroke();
       }
 
-      function drawPlanet(p) {
+      function drawPlanet(p, idx) {
         ctx.beginPath();
         ctx.fillStyle = "white";
 
@@ -92,8 +218,10 @@
         const x = offset + hscale - r;
         const y = vscale - r;
 
-        const au_p = Math.log10(p.perihelion - p.xp) * hscale + hscale - r;
-        const au_a = Math.log10(p.aphelion + p.xa) * hscale + hscale - r;
+        const au_p =
+          r * Math.log10(p.axis + (p.axis - p.perihelion) / p.axis - p.xp);
+        const au_a =
+          r * Math.log10(p.axis + (p.aphelion - p.axis) / p.axis + p.xa);
 
         const stripeScale = 2;
         const fh = Math.round((2 * r) / stripeScale);
@@ -118,19 +246,38 @@
         ctx.lineTo(x, y + r + 10);
 
         ctx.moveTo(x, y + r + 50);
-        ctx.lineTo(au_p, y + r + 50);
-        ctx.lineTo(au_p, y + r + 10);
+        ctx.lineTo(x - au_p, y + r + 50);
+        ctx.lineTo(x - au_p, y + r + 10);
 
         ctx.moveTo(x, y + r + 50);
-        ctx.lineTo(au_a, y + r + 50);
-        ctx.lineTo(au_a, y + r + 10);
+        ctx.lineTo(x + au_a, y + r + 50);
+        ctx.lineTo(x + au_a, y + r + 10);
 
         ctx.stroke();
+
+        var axisLabel = p.axis.toFixed(2) + " AU";
+        var massLabel = p.earthMass.toFixed(2) + " M⊕";
+        ctx.fillStyle = "black";
+
+        ctx.fillText(
+          axisLabel,
+          x - ctx.measureText(axisLabel).width / 2,
+          y + (idx % 2 ? -1 : 1) * (r + (idx % 2 ? 10 : 80))
+        );
+        ctx.fillText(
+          massLabel,
+          x - ctx.measureText(massLabel).width / 2,
+          y + (idx % 2 ? -1 : 1) * (r + (idx % 2 ? 20 : 90))
+        );
       }
 
       drawGrid();
 
       accrete.onmessage = function(e) {
+        Array.from(document.querySelectorAll("aside input")).forEach(
+          el => (el.disabled = false)
+        );
+
         btn.disabled = false;
         btn.innerText = "Generate Star System";
         clearInterval(loadingInterval);
@@ -144,16 +291,13 @@
         planets
           .sort((p1, p2) => p1.axis - p2.axis)
           .map((p, i) => {
-            var a = p.axis.toFixed(2) + " AU";
-            var m = p.earthMass.toFixed(2) + " M⊕";
-
             var shade = Math.floor(
               ((0.6 * planets.length - i) / planets.length) * 255
             );
             var rgba = [shade, shade, shade, 1];
             ctx.fillStyle = `rgba(${rgba.join(",")})`;
 
-            drawPlanet(p);
+            drawPlanet(p, i);
           });
       };
     </script>

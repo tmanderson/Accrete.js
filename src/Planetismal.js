@@ -1,13 +1,4 @@
-import {
-  A,
-  α,
-  K,
-  B,
-  W,
-  N,
-  SOLAR_MASS_IN_EARTH_MASS,
-  PROTOPLANET_MASS
-} from "./constants";
+import { SOLAR_MASS_IN_EARTH_MASS, PROTOPLANET_MASS } from "./constants";
 import { kothariRadius, orbitalZone } from "./Astro";
 
 export default class Planetismal {
@@ -35,6 +26,7 @@ export default class Planetismal {
   }
 
   get criticalMass() {
+    const { B } = this.system.config;
     return B * Math.pow(this.rp, -3 / 4);
   }
 
@@ -42,17 +34,20 @@ export default class Planetismal {
    * TODO: The eccentricity is RELATIVE to the planets displacement from the star
    *  ((majorAxis + this.e) - majorAxis + this.e)
    *
+   * @param      {StarSystem}        system        The star system containing this planetismal
    * @param      {Number}            majorAxis     The major axis
    * @param      {Number}            eccentricity  The eccentricity
    * @param      {number}            mass          The mass
    * @param      {(boolean|number)}  isGasGiant    Indicates if gas giant
    */
   constructor(
+    system,
     majorAxis,
     eccentricity,
     mass = PROTOPLANET_MASS,
     isGasGiant = false
   ) {
+    this.system = system;
     // semi-major axis
     this.a = majorAxis;
     // orbital eccentricity
@@ -69,6 +64,7 @@ export default class Planetismal {
   }
 
   bandwidth = () => {
+    const { W } = this.system.config;
     const { ra, rp, xa, xp } = this;
     const t1 = (W * (ra + xa)) / (1 - W);
     const t2 = (W * (rp - xp)) / (1 + W);
@@ -84,6 +80,7 @@ export default class Planetismal {
 
   // Dole's discrete mass function of the mass
   massDensity = p => {
+    const { N, W } = this.system.config;
     const t1 =
       (8 * Math.PI * Math.pow(this.a, N) * p * this.quadMass) / (1 - W * W);
     const t2 = this.e + this.quadMass + W + W * this.e * this.quadMass;

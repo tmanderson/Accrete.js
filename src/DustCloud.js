@@ -1,4 +1,3 @@
-import { A, α, K, N, ϴ } from "./constants";
 const band = (lower, upper, dust = true, gas = true) => ({
   lower,
   upper,
@@ -12,17 +11,16 @@ export default class DustCloud {
     return this.bands.filter(b => b.dust && b.gas).length > 0;
   }
 
-  constructor(stellarMass = 1, radius = 50, ratio = K) {
+  constructor(system, radius = 50) {
+    this.system = system;
     this.radius = 50;
-    this.ratio = ratio;
     this.bands = [band(0, radius)];
   }
 
   dustDensity = (radialDistance, mass, criticalMass, includeGas = false) => {
+    const { A, ALPHA: α, N, K } = this.system.config;
     const C = includeGas ? K : 1;
     const d = includeGas ? 1 + Math.sqrt(criticalMass / mass) * (K - 1) : 1;
-    // TODO: once we have getters/setters for system constants
-    // (C * (A * Math.sqrt(stellar_mass))) * Math.exp(-α * Math.pow(radialDistance, 1 / N))) / d;
     return (C * (A * Math.exp(-α * Math.pow(radialDistance, 1 / N)))) / d;
   };
 
@@ -43,7 +41,6 @@ export default class DustCloud {
     const includeGas = p.isGasGiant;
     const l = p.rp - p.xp;
     const u = p.ra + p.xa;
-    const width = u - l;
 
     this.bands = this.bands
       .reduce((bands, b) => {

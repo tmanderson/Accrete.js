@@ -1,19 +1,37 @@
-import { Q, PROTOPLANET_MASS, MAX_SYSTEM_ITERATIONS } from "./constants";
+import * as CONST from "./constants";
 import { rand } from "./utils";
 import DustCloud from "./DustCloud";
 import Planetismal from "./Planetismal";
 
 export default class StarSystem {
-  constructor() {
+  constructor(constants = {}) {
+    this.config = Object.assign(
+      {},
+      {
+        A: CONST.A,
+        B: CONST.B,
+        K: CONST.K,
+        N: CONST.N,
+        Q: CONST.Q,
+        W: CONST.W,
+        ALPHA: CONST.α
+      },
+      constants
+    );
+    for (const k in this.config) {
+      if (this.config.hasOwnProperty(k)) {
+        console.log(`${k}: ${this.config[k]}`);
+      }
+    }
     this.mass = 1;
     this.luminosity = 1;
-    this.matter = new DustCloud(this.luminosity);
+    this.matter = new DustCloud(this);
     this.planets = [];
   }
 
   create() {
     let i = 0;
-    while (this.matter.hasDust && i++ < MAX_SYSTEM_ITERATIONS) {
+    while (this.matter.hasDust) {
       this.injectNucleus();
       this.planets = this.checkCollisions(this.planets);
     }
@@ -25,10 +43,10 @@ export default class StarSystem {
 
   injectNucleus() {
     const a = rand(0.3, 50);
-    const e = 1 - Math.pow(rand(), Q);
-    const nucleus = new Planetismal(a, e);
+    const e = 1 - Math.pow(rand(), this.config.Q);
+    const nucleus = new Planetismal(this, a, e);
     const planet = this.collectDust(nucleus);
-    if (planet.mass > PROTOPLANET_MASS) this.planets.push(planet);
+    if (planet.mass > CONST.PROTOPLANET_MASS) this.planets.push(planet);
   }
 
   collectDust(n) {
@@ -79,7 +97,6 @@ export default class StarSystem {
     const term1 = (num1 + num2) / ((p1.mass + p2.mass) * Math.sqrt(a3));
     const e3 = Math.sqrt(Math.abs(1 - term1 * term1));
     const m3 = p1.mass + p2.mass;
-    // return this.collectDust(new Planetismal(a3, e3, m3));
-    return new Planetismal(a3, e3, m3);
+    return this.collectDust(new Planetismal(this, a3, e3, m3));
   }
 }
