@@ -104,7 +104,8 @@ export default class Planetismal {
       eccentricity: this.e,
       perihelion: this.rp,
       earthMass: this.earthMass,
-      isGasGiant: this.isGasGiant
+      isGasGiant: this.isGasGiant,
+      radius: kothariRadius(this)
     };
   };
 }

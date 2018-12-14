@@ -27,7 +27,11 @@ export const orbitalZone = (radius, lum = luminosity(1)) => {
 };
 
 /**
- * function kothariRadius
+ * @function kothariRadius
+ *
+ * @param {Planetismal} planetismal A planetismal
+ *
+ * @returns {Number} The radius of the planetismal in KM
  *
  *	 Returns the radius of the planet in kilometers.
  *	 The mass passed in is in units of solar masses.
@@ -38,8 +42,10 @@ export const orbitalZone = (radius, lum = luminosity(1)) => {
  *	 eq.23, which appears on page 840
  *
  */
-export const kothariRadius = (mass, zone, isGasGiant) => {
-  let atomicWeight, atomicNum, term, term1, term2;
+export const kothariRadius = planetismal => {
+  let atomicWeight, atomicNum;
+  const { isGasGiant, mass } = planetismal;
+  const zone = orbitalZone(planetismal.a);
 
   if (zone === 1) {
     atomicWeight = isGasGiant ? 9.5 : 15;
@@ -56,22 +62,22 @@ export const kothariRadius = (mass, zone, isGasGiant) => {
     atomicNum = isGasGiant ? 4 : 5;
   }
 
-  term1 = atomicWeight * atomicNum;
-  term =
-    (2 * C.BETA_20 * Math.pow(C.SOLAR_MASS_IN_GRAMS, 1 / 3)) /
-    (C.A1_20 * Math.pow(term1, 1 / 3));
+  const numeratorP1 = (2.0 * C.BETA_20) / C.A1_20;
+  const numeratorP2 = 1 / Math.pow(atomicWeight * atomicNum, 1.0 / 3.0);
+  const numerator =
+    numeratorP1 * numeratorP2 * Math.pow(C.SOLAR_MASS_IN_GRAMS, 1.0 / 3.0);
 
-  term2 =
-    C.A2_20 *
-    Math.pow(atomicWeight, 4 / 3) *
-    Math.pow(C.SOLAR_MASS_IN_GRAMS, 2 / 3);
-  term2 = term2 * Math.pow(mass, 2 / 3);
-  term2 = term2 / (C.A1_20 * Math.pow(atomicNum, 2));
+  const denominatorP1 = C.A2_20 / C.A1_20;
+  const denominatorP2 =
+    Math.pow(atomicWeight, 4.0 / 3.0) / Math.pow(atomicNum, 2.0);
+  const denominator =
+    1.0 +
+    denominatorP1 *
+      denominatorP2 *
+      Math.pow(C.SOLAR_MASS_IN_GRAMS, 2.0 / 3.0) *
+      Math.pow(mass, 2.0 / 3.0);
 
-  term = term / term2;
-  term = (term * Math.pow(mass, 1 / 3)) / C.CM_PER_KM;
-
-  return term;
+  return ((numerator / denominator) * Math.pow(mass, 1.0 / 3.0)) / C.CM_PER_KM;
 };
 
 /**
