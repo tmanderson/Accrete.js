@@ -1,7 +1,7 @@
 {
-  "name": "accrete",
+  "name": "@tmanderson/accrete",
   "description": "Planetary system creation simulation in the browser, or the server.",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "main": "src/index.js",
   "scripts": {
     "predocs": "rm -rf ./docs && mkdir docs",
