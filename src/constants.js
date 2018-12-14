@@ -8,7 +8,7 @@ export const A = 0.0015; // Dole's paper tests ranges between 0.00125 and 0.0015
 // The dust-to-gas ratio (dust/gas = K)
 export const K = 50; // 100, 50
 // Eccentricity of dust cloud
-export const W = 0.23; // 0.15 to 0.25;
+export const W = 0.20; // 0.15 to 0.25;
 // Negative exponential coefficient (EXPLANATION?) used in calculating dust density
 export const α = 5; // alpha in Dole's paper
 // Used in calculating dust density (as the nth root of the radius, r)

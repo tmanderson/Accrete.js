@@ -106,7 +106,8 @@ export default class Planetismal {
       axis: this.a,
       eccentricity: this.e,
       perihelion: this.rp,
-      earthMass: this.earthMass
+      earthMass: this.earthMass,
+      isGasGiant: this.isGasGiant
     };
   };
 }
