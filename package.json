@@ -18,7 +18,8 @@
     "watch:css": "watch 'npm run build:assets' assets/scss",
     "watch": "concurrently 'npm run watch:src'",
     "start:dev": "concurrently 'php -S localhost:3000' 'npm run watch'",
-    "start:node": "node -r @babel/register ./src"
+    "start:node": "node -r @babel/register ./src",
+    "start:debug": "node --inspect-brk -r @babel/register ./src"
   },
   "devDependencies": {
     "@babel/cli": "^7.2.0",

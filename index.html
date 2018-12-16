@@ -209,7 +209,7 @@
         ctx.beginPath();
         ctx.fillStyle = "white";
 
-        const au = Math.log10(p.axis);
+        const au = Math.log10(p.orbitalRadius);
 
         const rad = Math.pow(p.earthMass, 1 / 3);
         const r = Math.max(1, rad * rscale);
@@ -219,9 +219,9 @@
         const y = vscale - r;
 
         const au_p =
-          r * Math.log10(p.axis + (p.axis - p.perihelion) / p.axis - p.xp);
+          r * Math.log10(p.orbitalRadius + (p.orbitalRadius - p.perihelion) / p.orbitalRadius - p.xp);
         const au_a =
-          r * Math.log10(p.axis + (p.aphelion - p.axis) / p.axis + p.xa);
+          r * Math.log10(p.orbitalRadius + (p.aphelion - p.orbitalRadius) / p.orbitalRadius + p.xa);
 
         const stripeScale = 2;
         const fh = Math.round((2 * r) / stripeScale);
@@ -255,7 +255,7 @@
 
         ctx.stroke();
 
-        var axisLabel = p.axis.toFixed(2) + " AU";
+        var axisLabel = p.orbitalRadius.toFixed(2) + " AU";
         var massLabel = p.earthMass.toFixed(2) + " M⊕";
         ctx.fillStyle = "black";
 
@@ -287,9 +287,9 @@
         var inc = 100;
 
         drawGrid();
-        console.log(planets.sort((p1, p2) => p1.axis - p2.axis));
+        console.log(planets.sort((p1, p2) => p1.orbitalRadius - p2.orbitalRadius));
         planets
-          .sort((p1, p2) => p1.axis - p2.axis)
+          .sort((p1, p2) => p1.orbitalRadius - p2.orbitalRadius)
           .map((p, i) => {
             var shade = Math.floor(
               ((0.6 * planets.length - i) / planets.length) * 255

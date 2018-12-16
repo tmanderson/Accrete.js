@@ -1,4 +1,4 @@
-importScripts("./accrete.min.js");
+importScripts("./accrete.js");
 const GENERATE_PLANETS = "GENERATE_PLANETS";
 const GENERATE_SYSTEM = "GENERATE_SYSTEM";
 

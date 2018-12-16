@@ -8,7 +8,7 @@ export const A = 0.0015; // Dole's paper tests ranges between 0.00125 and 0.0015
 // The dust-to-gas ratio (dust/gas = K)
 export const K = 50; // 100, 50
 // Eccentricity of dust cloud
-export const W = 0.20; // 0.15 to 0.25;
+export const W = 0.2; // 0.15 to 0.25;
 // Negative exponential coefficient (EXPLANATION?) used in calculating dust density
 export const α = 5; // alpha in Dole's paper
 // Used in calculating dust density (as the nth root of the radius, r)
@@ -38,7 +38,7 @@ export const EARTH_ACCELERATION = 980.7; /* Units of cm/sec2     */
 export const EARTH_AXIAL_TILT = 23.4; /* Units of degrees     */
 export const EARTH_EXOSPHERE_TEMP = 1273.0; /* Units of degrees Kelvin  */
 export const ASTEROID_MASS_LIMIT = 0.001; /* Units of Earth Masses  */
-export const EARTH_EFFECTIVE_TEMP = 250.0; /* Units of degrees Kelvin (was 255)  */
+export const EARTH_EFFECTIVE_TEMP = 255.0; /* Units of degrees Kelvin (was 255)  */
 export const CLOUD_COVERAGE_FACTOR = 1.839e-8; /* Km2/kg         */
 export const EARTH_WATER_MASS_PER_AREA = 3.83e15; /* grams per square km    */
 export const EARTH_SURF_PRES_IN_MILLIBARS = 1013.25;
@@ -79,6 +79,7 @@ export const EARTH_AVERAGE_KELVIN =
 export const DAYS_IN_A_YEAR = 365.256; /* Earth days per Earth year*/
 //    gas_retention_threshold = 5.0;      /* ratio of esc vel to RMS vel */
 export const GAS_RETENTION_THRESHOLD = 6.0; /* ratio of esc vel to RMS vel */
+export const GREENHOUSE_EFFECT_CONST = 0.9;
 
 export const ICE_ALBEDO = 0.7;
 export const CLOUD_ALBEDO = 0.52;
@@ -95,7 +96,6 @@ export const CM_PER_AU = 1.495978707e13; /* number of cm in an AU  */
 export const CM_PER_KM = 1.0e5; /* number of cm in a km   */
 export const KM_PER_AU = CM_PER_AU / CM_PER_KM;
 export const CM_PER_METER = 100.0;
-//export const MILLIBARS_PER_BAR = 1013.25;
 export const MILLIBARS_PER_BAR = 1000.0;
 
 export const GRAV_CONSTANT = 6.672e-8; /* units of dyne cm2/gram2  */
@@ -168,3 +168,8 @@ export const JIMS_FUDGE = 1.004;
 /*  covered with clouds in function cloud_fraction in file enviro.c.     */
 export const Q1_36 = 1.258e19; /* grams  */
 export const Q2_36 = 0.0698; /* 1/Kelvin */
+
+//
+export const FOGG_CONSTANT_OF_PROPORTION_1 = 1e6;
+export const FOGG_CONSTANT_OF_PROPORTION_2 = 75e3;
+export const FOGG_CONSTANT_OF_PROPORTION_3 = 250;

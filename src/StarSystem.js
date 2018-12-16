@@ -1,30 +1,56 @@
-import * as CONST from "./constants";
+import * as C from "./constants";
 import { rand } from "./utils";
 import DustCloud from "./DustCloud";
 import Planetismal from "./Planetismal";
 
 export default class StarSystem {
-  constructor(constants = {}) {
+  get ecosphereRadius() {
+    return Math.sqrt(this.luminosity);
+  }
+
+  get greenhouseRadius() {
+    return this.ecosphereRadius * C.GREENHOUSE_EFFECT_COST;
+  }
+  /**
+   * Get the age of the system's star, in billions of years
+   */
+  get age() {
+    // main sequence lifetime, billions of years
+    const msl = 10 * this.mass / this.luminosity;
+    return msl >= 6
+      ? rand(1, 6)
+      : rand(1, msl);
+  }
+
+  get luminosity() {
+    const n = this.mass < 1
+      ? 1.75 * (this.mass - 0.1) + 3.325
+      : 0.5 * (2 - this.mass) + 4.4
+
+    return Math.pow(this.mass, n);
+  }
+
+  constructor(config = {}) {
     this.config = Object.assign(
       {},
       {
-        A: CONST.A,
-        B: CONST.B,
-        K: CONST.K,
-        N: CONST.N,
-        Q: CONST.Q,
-        W: CONST.W,
-        ALPHA: CONST.α
+        A: C.A,
+        B: C.B,
+        K: C.K,
+        N: C.N,
+        Q: C.Q,
+        W: C.W,
+        ALPHA: C.α
       },
-      constants
+      config
     );
     for (const k in this.config) {
       if (this.config.hasOwnProperty(k)) {
         console.log(`${k}: ${this.config[k]}`);
       }
     }
-    this.mass = 1;
-    this.luminosity = 1;
+
+    this.mass = config.mass || 1;
     this.matter = new DustCloud(this);
     this.planets = [];
   }
@@ -34,6 +60,7 @@ export default class StarSystem {
     while (this.matter.hasDust) {
       this.injectNucleus();
       this.planets = this.checkCollisions(this.planets);
+      i += 1;
     }
     console.log(
       `Created system of ${this.planets.length} planets after ${i} iterations`
@@ -46,7 +73,7 @@ export default class StarSystem {
     const e = 1 - Math.pow(rand(), this.config.Q);
     const nucleus = new Planetismal(this, a, e);
     const planet = this.collectDust(nucleus);
-    if (planet.mass > CONST.PROTOPLANET_MASS) this.planets.push(planet);
+    if (planet.mass > C.PROTOPLANET_MASS) this.planets.push(planet);
   }
 
   collectDust(n) {
