@@ -314,18 +314,14 @@ export default class Planetismal {
       eccentricity: this.e,
       iceCover: this.iceCover,
       isGasGiant: this.isGasGiant,
+      orbitalPeriod: this.orbitalPeriod,
       orbitalRadius: this.a,
       orbitalZone: this.orbitalZone,
       perihelion: this.rp,
-      period: this.orbitalPeriod,
       radius: this.radius,
       surfaceGravity: this.surfaceGravity,
       surfacePressure: this.surfacePressure,
-      temperature: Object.entries(this.temperature).reduce((temps, [k, v]) => ({
-        ...temps,
-        // TODO: figure out why temperature outputs are off by 14C
-        [k]: (v - EARTH_AVERAGE_CELSIUS)
-      }), {}),
+      temperature: this.temperature,
       type: this.planetType,
       volatileGasInventory: this.volatileGasInventory,
       waterCover: this.waterCover,

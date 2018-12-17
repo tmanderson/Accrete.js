@@ -143,52 +143,28 @@ export const period = (separation, smallMass, largeMass) => {
  * The length of the day is returned in units of hours.
  */
 export const dayLength = planet => {
-  const massInGrams = planet.mass * C.SOLAR_MASS_IN_GRAMS;
-  const radiusInCM = planet.radius * C.CM_PER_KM;
-  const year_in_hours = planet.orbitalPeriod * 24.0;
-  const giant = planet.isGasGiant;
-  const k2 = giant ? 0.24 : 0.33;
-  let base_angular_velocity, change_in_angular_velocity, ang_velocity, spin_resonance_factor, day_in_hours;
-  let stopped = false;
+  let base_angular_velocity;
+  let planetary_mass_in_grams = planet.mass * C.SOLAR_MASS_IN_GRAMS;
+  let k2 = planet.isGasGiant ? 0.24 : 0.33;
+  let equatorial_radius_in_cm = planet.radius * C.CM_PER_KM;
+  let spin_resonance_period;
+  let temp;
 
-  planet.resonant_period = false;	/* Warning: Modify the planet */
+  base_angular_velocity = Math.sqrt(
+    (2.0 * C.J * planetary_mass_in_grams) /
+    (k2 * Math.pow(equatorial_radius_in_cm, 2))
+  );
+  // added *24.0, otherwise returned value appeared to be fractions of day
+  temp =
+    (1.0 / ((base_angular_velocity / 2) * Math.PI * C.SECONDS_PER_HOUR));
 
-  base_angular_velocity = Math.sqrt(2.0 * C.J * massInGrams / (k2 * Math.pow(radiusInCM, 2)));
-
-  // This next calculation determines how much the planet's rotation is
-  // slowed by the presence of the star.
-
-  change_in_angular_velocity = C.CHANGE_IN_EARTH_ANG_VEL *
-								 (planet.density / C.EARTH_DENSITY) *
-								 (radiusInCM / C.EARTH_RADIUS) *
-								 (C.EARTH_MASS_IN_GRAMS / massInGrams) *
-								 Math.pow(planet.system.mass, 2.0) *
-                 (1.0 / Math.pow(planet.a, 6.0));
-
-  ang_velocity = base_angular_velocity + (change_in_angular_velocity * planet.system.age * 1e9);
-
-  // Now we change from rad/sec to hours/rotation
-
-  if (ang_velocity <= 0.0) {
-    stopped = true;
-    day_in_hours = C.INCREDIBLY_LARGE_NUMBER;
+  if (temp >= planet.period * 24) {
+    planet.resonant_period = true;
+    spin_resonance_period =
+      ((1.0 - planet.e) / (1.0 + planet.e)) * 24.0 * planet.orbitalPeriod;
+    if (planet.e > 0.1) return spin_resonance_period;
   }
-  else {
-    day_in_hours = Math.PI / (C.SECONDS_PER_HOUR * ang_velocity);
-  }
-
-  if ((day_in_hours >= year_in_hours) || stopped) {
-    if (planet.e > 0.1) {
-		  spin_resonance_factor 	= (1.0 - planet.e) / (1.0 + planet.e);
-		  planet.resonant_period 	= true;
-		  return spin_resonance_factor * year_in_hours;
-    }
-    else {
-		  return year_in_hours;
-    }
-  }
-
-  return day_in_hours;
+    return planet.orbitalPeriod / 24.0; // added the / 24.0 TODO: why
 };
 
 /*--------------------------------------------------------------------------*/

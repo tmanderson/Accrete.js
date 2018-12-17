@@ -215,8 +215,8 @@
         const r = Math.max(1, rad * rscale);
         const offset = au * hscale;
 
-        const x = offset + hscale - r;
-        const y = vscale - r;
+        const x = offset + hscale - r/2;
+        const y = vscale - r/2;
 
         const au_p =
           r * Math.log10(p.orbitalRadius + (p.orbitalRadius - p.perihelion) / p.orbitalRadius - p.xp);
@@ -269,6 +269,11 @@
           x - ctx.measureText(massLabel).width / 2,
           y + (idx % 2 ? -1 : 1) * (r + (idx % 2 ? 20 : 90))
         );
+        ctx.fillText(
+          p.dayLength,
+          x - ctx.measureText(massLabel).width / 2,
+          y + (idx % 2 ? -1 : 1) * (r + (idx % 2 ? 40 : 120))
+        );
       }
 
       drawGrid();
@@ -289,7 +294,7 @@
         drawGrid();
         console.log(planets.sort((p1, p2) => p1.orbitalRadius - p2.orbitalRadius));
         planets
-          .sort((p1, p2) => p1.orbitalRadius - p2.orbitalRadius)
+          .sort((p1, p2) => p1.axis - p2.axis)
           .map((p, i) => {
             var shade = Math.floor(
               ((0.6 * planets.length - i) / planets.length) * 255
