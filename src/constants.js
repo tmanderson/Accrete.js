@@ -44,6 +44,7 @@ export const EARTH_WATER_MASS_PER_AREA = 3.83e15; /* grams per square km    */
 export const EARTH_SURF_PRES_IN_MILLIBARS = 1013.25;
 export const EARTH_SURF_PRES_IN_MMHG = 760; /* Dole p. 15       */
 export const EARTH_SURF_PRES_IN_PSI = 14.696; /* Pounds per square inch */
+
 export const MMHG_TO_MILLIBARS =
   EARTH_SURF_PRES_IN_MILLIBARS / EARTH_SURF_PRES_IN_MMHG;
 export const PSI_TO_MILLIBARS =
@@ -169,7 +170,6 @@ export const JIMS_FUDGE = 1.004;
 export const Q1_36 = 1.258e19; /* grams  */
 export const Q2_36 = 0.0698; /* 1/Kelvin */
 
-//
-export const FOGG_CONSTANT_OF_PROPORTION_1 = 1e6;
+export const FOGG_CONSTANT_OF_PROPORTION_1 = 14e4; // altered to retain match with stargen's value of 140k
 export const FOGG_CONSTANT_OF_PROPORTION_2 = 75e3;
 export const FOGG_CONSTANT_OF_PROPORTION_3 = 250;

@@ -4,6 +4,19 @@ import { rand } from "./utils";
 // C.NOTE: This file is not currently used, but the plan is in the works.
 // Currently, all contents that of StarGen's (http://eldacur.com/~brons/NerdCorner/StarGen/StarGen.html)
 
+export const about = (val, variance) => val + val * rand(-variance, variance);
+
+export const convert = {
+  metric: {
+    kelvinToCelsius: k => k - 273.15
+  },
+  empirical: {
+    kelvinToFahrenheit: k => k * 9 / 5 - 495.67,
+    kgToPounds: kg => kg * 2.205,
+    kmToMiles: km => km / 1.609,
+  }
+}
+
 export const luminosity = mass => {
   const n = mass < 1 ? 1.75 * (mass - 0.1) + 3.325 : 0.5 * (2.0 - mass) + 4.4;
 
@@ -81,11 +94,11 @@ export const kothariRadius = planetismal => {
  *	The mass passed in is in units of solar masses, and the orbital radius
  *	is in units of C.AU.	The density is returned in units of grams/cc.
  */
-export const empiricalDensity = (orbRadius, rEcosphere, gasGiant) => {
+export const empiricalDensity = (mass, orbRadius, rEcosphere, gasGiant) => {
   let term;
 
-  term = Math.pow(mass * C.solarMassEarthMass, 1 / 8);
-  term = term * Math.sqrt(Math.sqrt(rEcosphere, orbRadius));
+  term = Math.pow(mass * C.SOLAR_MASS_IN_EARTH_MASS, 1 / 8);
+  term = term * Math.pow(rEcosphere / orbRadius, 1 / 4);
 
   return gasGiant ? term * 1.2 : term * 5.5;
 };
@@ -103,13 +116,13 @@ export const volumeDensity = (mass, maxRadius) => {
 };
 
 /*--------------------------------------------------------------------------*/
-/*	The separation is in units of C.AU, and both masses are in units of solar */
-/*	masses.	 The period returned is in terms of Earth days.					*/
+/*	The separation is in units of AU, and both masses are in units of solar */
+/*	masses.
+
+    The period returned is in terms of Earth days.					*/
 /*--------------------------------------------------------------------------*/
 export const period = (separation, smallMass, largeMass) => {
-  let periodInYears;
-  periodInYears = Math.sqrt(Math.pow(separation, 3) / (smallMass + largeMass));
-  return periodInYears * C.DAYS_IN_A_YEAR;
+  return Math.sqrt(Math.pow(separation, 3) / (smallMass + largeMass)) * C.DAYS_IN_A_YEAR;
 };
 
 /**
@@ -130,30 +143,52 @@ export const period = (separation, smallMass, largeMass) => {
  * The length of the day is returned in units of hours.
  */
 export const dayLength = planet => {
-  let base_angular_velocity;
-  let planetary_mass_in_grams = planet.mass * C.SOLAR_MASS_IN_GRAMS;
-  let k2 = planet.isGasGiant ? 0.24 : 0.33;
-  let equatorial_radius_in_cm = planet.radius * C.CM_PER_KM;
-  let spin_resonance_period;
-  let temp;
+  const massInGrams = planet.mass * C.SOLAR_MASS_IN_GRAMS;
+  const radiusInCM = planet.radius * C.CM_PER_KM;
+  const year_in_hours = planet.orbitalPeriod * 24.0;
+  const giant = planet.isGasGiant;
+  const k2 = giant ? 0.24 : 0.33;
+  let base_angular_velocity, change_in_angular_velocity, ang_velocity, spin_resonance_factor, day_in_hours;
+  let stopped = false;
 
-  base_angular_velocity = Math.sqrt(
-    (2.0 * C.J * planetary_mass_in_grams) /
-    (k2 * Math.pow(equatorial_radius_in_cm, 2))
-  );
-  // added *24.0, otherwise returned value appeared to be fractions of day
-  temp =
-    (1.0 / ((base_angular_velocity / 2) * Math.PI * C.SECONDS_PER_HOUR)) * 24.0;
+  planet.resonant_period = false;	/* Warning: Modify the planet */
 
-  if (temp >= planet.period * 24) {
-    planet.resonant_period = true;
-    spin_resonance_period =
-      ((1.0 - planet.e) / (1.0 + planet.e)) * 24.0 * planet.period;
-    if (planet.e > 0.1) return spin_resonance_period;
-    return orbitalPeriod * 24.0;
+  base_angular_velocity = Math.sqrt(2.0 * C.J * massInGrams / (k2 * Math.pow(radiusInCM, 2)));
+
+  // This next calculation determines how much the planet's rotation is
+  // slowed by the presence of the star.
+
+  change_in_angular_velocity = C.CHANGE_IN_EARTH_ANG_VEL *
+								 (planet.density / C.EARTH_DENSITY) *
+								 (radiusInCM / C.EARTH_RADIUS) *
+								 (C.EARTH_MASS_IN_GRAMS / massInGrams) *
+								 Math.pow(planet.system.mass, 2.0) *
+                 (1.0 / Math.pow(planet.a, 6.0));
+
+  ang_velocity = base_angular_velocity + (change_in_angular_velocity * planet.system.age * 1e9);
+
+  // Now we change from rad/sec to hours/rotation
+
+  if (ang_velocity <= 0.0) {
+    stopped = true;
+    day_in_hours = C.INCREDIBLY_LARGE_NUMBER;
+  }
+  else {
+    day_in_hours = Math.PI / (C.SECONDS_PER_HOUR * ang_velocity);
   }
 
-  return temp;
+  if ((day_in_hours >= year_in_hours) || stopped) {
+    if (planet.e > 0.1) {
+		  spin_resonance_factor 	= (1.0 - planet.e) / (1.0 + planet.e);
+		  planet.resonant_period 	= true;
+		  return spin_resonance_factor * year_in_hours;
+    }
+    else {
+		  return year_in_hours;
+    }
+  }
+
+  return day_in_hours;
 };
 
 /*--------------------------------------------------------------------------*/
@@ -162,10 +197,8 @@ export const dayLength = planet => {
 /*--------------------------------------------------------------------------*/
 export const inclination = orb_radius => {
   return (
-    (Math.pow(orb_radius, 0.2) *
-      rand(C.EARTH_AXIAL_TILT - 0.4, C.EARTH_AXIAL_TILT + 0.4)) %
-    360
-  );
+    Math.pow(orb_radius, 0.2) * about(C.EARTH_AXIAL_TILT, 0.4)
+  ) % 360;
 };
 
 /*--------------------------------------------------------------------------*/
@@ -200,8 +233,9 @@ export const rms_vel = (molecular_weight, exospheric_temperature) => {
 /*	Mass is in units of solar masses, and equatorial radius is in units of	*/
 /*	kilometers.																*/
 /*--------------------------------------------------------------------------*/
-export const molecule_limit = (mass, equatorial_radius) => {
-  return 3.0 * Math.pow(C.GAS_RETENTION_THRESHOLD * C.CM_PER_METER, 2.0) * C.MOLAR_GAS_CONST * C.EARTH_EXOSPHERE_TEMP / Math.pow(escape_vel(mass, equatorial_radius), 2.0);
+export const molecule_limit = planet => {
+  return (3.0 * C.MOLAR_GAS_CONST * planet.exosphericTemperature) /
+    (Math.pow((planet.escapeVelocity / C.GAS_RETENTION_THRESHOLD) / C.CM_PER_METER, 2.0));
 };
 
 /*--------------------------------------------------------------------------*/
@@ -233,10 +267,8 @@ export const vol_inventory = planet => {
   const rms_vel = planet.RMSVelocity;
   const stellar_mass = planet.system.mass;
   const zone = planet.orbitalZone;
-  // Greenhouse radius C.OF C.THE C.SYSTEM (TODO: put on system)
-  const greenhouse_radius =
-    Math.sqrt(planet.system.luminosity) * C.GREENHOUSE_EFFECT_CONST;
-  const greenhouse_effect = greenhouse(planet);
+  // Greenhouse radius OF THE SYSTEM
+  const greenhouse_effect = planet.a < planet.system.greenhouseRadius;
 
   let velocity_ratio, proportion_const, temp1, temp2, earth_units;
   velocity_ratio = escape_vel / rms_vel;
@@ -244,26 +276,29 @@ export const vol_inventory = planet => {
   if (velocity_ratio >= C.GAS_RETENTION_THRESHOLD) {
     switch (zone) {
       case 1:
-        proportion_const = 140000.0; /* 100 . 140 C.JLB */
+        proportion_const = 100000;
         break;
       case 2:
-        proportion_const = 75000.0;
+        proportion_const = 75000;
         break;
       case 3:
-        proportion_const = 250.0;
+        proportion_const = 250;
         break;
       default:
-        proportion_const = 0.0;
+        proportion_const = 0;
         console.error("Error: orbital zone not initialized correctly!\n");
         break;
     }
+
     earth_units = mass * C.SOLAR_MASS_IN_EARTH_MASS;
     temp1 = (proportion_const * earth_units) / stellar_mass;
-    temp2 = rand(temp1 - 0.2, temp1 + 0.2);
-    temp2 = temp1;
+    temp2 = about(temp1, 0.2);
     if (greenhouse_effect || isGasGiant) return temp2;
-    else return temp2 / 140.0; /* 100 . 140 C.JLB */
-  } else return 0.0;
+
+    return temp2 / 100.0; // 100-140
+  }
+
+  return 0.0;
 };
 
 /**
@@ -276,12 +311,7 @@ export const vol_inventory = planet => {
  * @returns {Number} The surface pressure in millbars
  */
 export const pressure = (volatile_gas_inventory, equat_radius, gravity) => {
-  return (
-    (volatile_gas_inventory *
-      gravity *
-      (C.EARTH_SURF_PRES_IN_MILLIBARS / 1000.0)) /
-    Math.pow(C.KM_EARTH_RADIUS / equat_radius, 2)
-  );
+  return volatile_gas_inventory * gravity * Math.pow(C.KM_EARTH_RADIUS / equat_radius, 2);
 };
 
 /*--------------------------------------------------------------------------*/
@@ -303,7 +333,7 @@ export const boiling_point = surf_pressure => {
 /*--------------------------------------------------------------------------*/
 export const hydro_fraction = (volatile_gas_inventory, planet_radius) => {
   const temp =
-    ((0.71 * volatile_gas_inventory) / 1000.0) *
+    (0.71 * volatile_gas_inventory / 1000.0) *
     Math.pow(C.KM_EARTH_RADIUS / planet_radius, 2);
   return Math.min(1.0, temp);
 };
@@ -326,18 +356,14 @@ export const cloud_fraction = (
 ) => {
   let water_vapor_in_kg, fraction, surf_area, hydro_mass;
 
-  if (smallest_MW_retained > C.WATER_VAPOR) return 0.0;
-  else {
-    surf_area = 4.0 * C.PI * Math.pow(equat_radius, 2);
-    hydro_mass = hydro_fraction * surf_area * C.EARTH_WATER_MASS_PER_AREA;
-    water_vapor_in_kg =
-      0.00000001 *
-      hydro_mass *
-      Math.exp(C.Q2_36 * (surf_temp - C.EARTH_AVERAGE_KELVIN));
-    fraction = (C.CLOUD_COVERAGE_FACTOR * water_vapor_in_kg) / surf_area;
-    if (fraction >= 1.0) return 1.0;
-    else return fraction;
-  }
+  if (smallest_MW_retained > C.WATER_VAPOR)
+    return 0;
+
+  surf_area = 4.0 * Math.PI * Math.pow(equat_radius, 2);
+  hydro_mass = hydro_fraction * surf_area * C.EARTH_WATER_MASS_PER_AREA;
+  water_vapor_in_kg = 1e-8 * hydro_mass * Math.exp(C.Q2_36 * (surf_temp - C.EARTH_AVERAGE_KELVIN));
+  fraction = C.CLOUD_COVERAGE_FACTOR * water_vapor_in_kg / surf_area;
+  return Math.min(1, fraction);
 };
 
 /*--------------------------------------------------------------------------*/
@@ -351,13 +377,15 @@ export const cloud_fraction = (
 export const ice_fraction = (hydro_fraction, surf_temp) => {
   let temp;
 
-  if (surf_temp > 328.0) surf_temp = 328.0;
-  temp = Math.pow((328.0 - surf_temp) / 90.0, 5.0);
+  if (surf_temp > 328)
+    surf_temp = 328;
 
-  if (temp > 1.5 * hydro_fraction) temp = 1.5 * hydro_fraction;
+  temp = Math.pow((328 - surf_temp) / 90, 5);
 
-  if (temp >= 1.0) return 1.0;
-  return temp;
+  if (temp > 1.5 * hydro_fraction)
+    temp = 1.5 * hydro_fraction;
+
+  return Math.min(1, temp);
 };
 
 /*--------------------------------------------------------------------------*/
@@ -415,14 +443,9 @@ export const greenhouse = planet => {
 export const green_rise = (optical_depth, effective_temp, surf_pressure) => {
   const convection_factor =
     C.EARTH_CONVECTION_FACTOR *
-    Math.pow(surf_pressure / C.EARTH_SURF_PRES_IN_MILLIBARS, 0.4);
+    Math.pow(surf_pressure / C.EARTH_SURF_PRES_IN_MILLIBARS, 1 / 4);
 
-  const rise =
-    (Math.pow(1.0 + 0.75 * optical_depth, 1 / 4) - 1.0) *
-    effective_temp *
-    convection_factor;
-
-  return Math.max(0.0, rise);
+  return (Math.pow(1.75 * optical_depth, 1 / 4) - 1.0) * effective_temp * convection_factor;
 };
 
 /*--------------------------------------------------------------------------*/
@@ -446,6 +469,7 @@ export const planet_albedo = (
 
   rock_fraction = 1.0 - water_fraction - ice_fraction;
   components = 0.0;
+
   if (water_fraction > 0.0) components = components + 1.0;
   if (ice_fraction > 0.0) components = components + 1.0;
   if (rock_fraction > 0.0) components = components + 1.0;
@@ -464,16 +488,16 @@ export const planet_albedo = (
     ice_fraction = ice_fraction - cloud_adjustment;
   else ice_fraction = 0.0;
 
-  cloud_part = cloud_fraction * C.CLOUD_ALBEDO; /* about(...,0.2); */
+  cloud_part = cloud_fraction * about(C.CLOUD_ALBEDO, 0.2);
 
   if (surf_pressure == 0.0) {
-    rock_part = rock_fraction * C.ROCKY_AIRLESS_ALBEDO; /* about(...,0.3); */
-    ice_part = ice_fraction * C.AIRLESS_ICE_ALBEDO; /* about(...,0.4); */
+    rock_part = rock_fraction * about(C.ROCKY_AIRLESS_ALBEDO, 0.3); /* about(...,0.3); */
+    ice_part = ice_fraction * about(C.AIRLESS_ICE_ALBEDO, 0.4); /* about(...,0.4); */
     water_part = 0;
   } else {
-    rock_part = rock_fraction * C.ROCKY_ALBEDO; /* about(...,0.1); */
-    water_part = water_fraction * C.WATER_ALBEDO; /* about(...,0.2); */
-    ice_part = ice_fraction * C.ICE_ALBEDO; /* about(...,0.1); */
+    rock_part = rock_fraction * about(C.ROCKY_ALBEDO, 0.1); /* about(...,0.1); */
+    water_part = water_fraction * about(C.WATER_ALBEDO, 0.2); /* about(...,0.2); */
+    ice_part = ice_fraction * about(C.ICE_ALBEDO, 0.1); /* about(...,0.1); */
   }
 
   return cloud_part + rock_part + water_part + ice_part;
@@ -486,27 +510,38 @@ export const planet_albedo = (
 /*--------------------------------------------------------------------------*/
 export const opacity = (molecular_weight, surf_pressure) => {
   let optical_depth = 0.0;
-  if (molecular_weight >= 0.0 && molecular_weight < 10.0)
-    optical_depth = optical_depth + 3.0;
-  if (molecular_weight >= 10.0 && molecular_weight < 20.0)
-    optical_depth = optical_depth + 2.34;
-  if (molecular_weight >= 20.0 && molecular_weight < 30.0)
-    optical_depth = optical_depth + 1.0;
-  if (molecular_weight >= 30.0 && molecular_weight < 45.0)
-    optical_depth = optical_depth + 0.15;
-  if (molecular_weight >= 45.0 && molecular_weight < 100.0)
-    optical_depth = optical_depth + 0.05;
 
-  if (surf_pressure >= 70.0 * C.EARTH_SURF_PRES_IN_MILLIBARS)
+  if ((molecular_weight >= 0.0) && (molecular_weight < 10.0))
+    optical_depth = optical_depth + 3.0;
+  if ((molecular_weight >= 10.0) && (molecular_weight < 20.0))
+    optical_depth = optical_depth + 2.34;
+  if ((molecular_weight >= 20.0) && (molecular_weight < 30.0))
+    optical_depth = optical_depth + 1.0;
+  if ((molecular_weight >= 30.0) && (molecular_weight < 45.0))
+    optical_depth = optical_depth + 0.15;
+  if ((molecular_weight >= 45.0) && (molecular_weight < 100.0))
+    optical_depth = optical_depth + 0.05;
+  if (surf_pressure >= (70.0 * C.EARTH_SURF_PRES_IN_MILLIBARS))
     optical_depth = optical_depth * 8.333;
-  else if (surf_pressure >= 50.0 * C.EARTH_SURF_PRES_IN_MILLIBARS)
-    optical_depth = optical_depth * 6.666;
-  else if (surf_pressure >= 30.0 * C.EARTH_SURF_PRES_IN_MILLIBARS)
-    optical_depth = optical_depth * 3.333;
-  else if (surf_pressure >= 10.0 * C.EARTH_SURF_PRES_IN_MILLIBARS)
-    optical_depth = optical_depth * 2.0;
-  else if (surf_pressure >= 5.0 * C.EARTH_SURF_PRES_IN_MILLIBARS)
-    optical_depth = optical_depth * 1.5;
+  else {
+    if (surf_pressure >= (50.0 * C.EARTH_SURF_PRES_IN_MILLIBARS)) {
+      optical_depth = optical_depth * 6.666;
+    }
+    else {
+      if (surf_pressure >= (30.0 * C.EARTH_SURF_PRES_IN_MILLIBARS)) {
+        optical_depth = optical_depth * 3.333;
+      }
+      else {
+        if (surf_pressure >= (10.0 * C.EARTH_SURF_PRES_IN_MILLIBARS)) {
+          optical_depth = optical_depth * 2.0;
+        }
+        else {
+          if (surf_pressure >= (5.0 * C.EARTH_SURF_PRES_IN_MILLIBARS))
+            optical_depth = optical_depth * 1.5;
+        }
+      }
+    }
+  }
 
   return optical_depth;
 };
@@ -591,18 +626,17 @@ export const min_molec_weight = planet => {
 export const calculate_surface_temp = (
   planet,
   first,
-  last_water,
-  last_clouds,
-  last_ice,
-  last_temp,
-  last_albedo
+  last_water = planet._waterCover || 0,
+  last_clouds = planet._cloudCover || 0,
+  last_ice = planet._iceCover || 0,
+  last_temp = planet._surfaceTemperature || 0,
+  last_albedo = planet._albedo || C.EARTH_ALBEDO
 ) => {
   const ecosphereRadius = planet.system.ecosphereRadius;
+
   let greenhouse_effect = greenhouse(planet);
   let effective_temp;
   let surf_temp;
-  let water_raw;
-  let clouds_raw;
   let greenhouse_temp;
   let boil_off = false;
 
@@ -622,141 +656,125 @@ export const calculate_surface_temp = (
     planet._temperature = get_temp_range(planet, surf_temp);
   }
 
-  if (greenhouse_effect && planet.temperature.max < planet.boilingPoint) {
+  if (greenhouse_effect && planet._temperature.max < planet.boilingPoint) {
     greenhouse_effect = 0;
   }
 
-  water_raw = planet.hydrosphere;
-  clouds_raw = planet.cloudCover;
-  planet.ice_cover = ice_fraction(planet.hydrosphere, planet.surf_temp);
+  planet._cloudCover = planet._waterCover = undefined;
 
   if (greenhouse_effect && planet.surfacePressure > 0.0)
     planet._cloudCover = 1.0;
 
   if (
-    planet.temperature.high >= planet.boilingPoint &&
+    planet._temperature.day >= planet.boilingPoint &&
     !first &&
-    !(planet.day == planet.orb_period * 24.0 || planet.resonant_period)
+    !(planet.dayLength == planet.orbitalPeriod * 24.0 || planet.resonant_period)
   ) {
-    planet._hydrosphere = 0.0;
+    planet._waterCover = 0.0;
     boil_off = true;
 
-    if (planet.molec_weight > C.WATER_VAPOR) planet._cloudCover = 0.0;
+    if (planet.molecularWeight > C.WATER_VAPOR) planet._cloudCover = 0.0;
     else planet._cloudCover = 1.0;
   }
 
   if (planet.surf_temp < C.FREEZING_POINT_OF_WATER - 3.0)
-    planet._hydrosphere = 0.0;
+    planet._waterCover = 0.0;
 
   planet._albedo = planet_albedo(
-    planet.hydrosphere,
-    planet._cloudCover,
-    planet.ice_cover,
-    planet.surf_pressure
-  );
-
-  effective_temp = eff_temp(ecosphereRadius, planet.a, planet.albedo);
-
-  greenhouse_temp = green_rise(
-    opacity(planet.moleculeLimit, planet.surfacePressure),
-    effective_temp,
+    planet.waterCover,
+    planet.cloudCover,
+    planet.iceCover,
     planet.surfacePressure
   );
 
-  planet.surf_temp = effective_temp + greenhouse_temp;
+  effective_temp = planet.effectiveTemperature;
+  greenhouse_temp = planet.greenhouseTempDelta;
+
+  planet._surfaceTemperature = effective_temp + greenhouse_temp;
 
   if (!first) {
     if (!boil_off)
-      planet._hydrosphere = (planet.hydrosphere + last_water * 2) / 3;
-    planet._cloudCover = (planet._cloudCover + last_clouds * 2) / 3;
-    planet.ice_cover = (planet.ice_cover + last_ice * 2) / 3;
+      planet._waterCover = (planet.waterCover + last_water * 2) / 3;
+    planet._cloudCover = (planet.cloudCover + last_clouds * 2) / 3;
+    planet._iceCover = (planet.iceCover + last_ice * 2) / 3;
     planet._albedo = (planet.albedo + last_albedo * 2) / 3;
-    planet.surf_temp = (planet.surf_temp + last_temp * 2) / 3;
+    planet._surfaceTemperature = (planet.surfaceTemperature + last_temp * 2) / 3;
   }
 
-  return get_temp_range(planet, surf_temp);
-
-  // if (DEBUG)
-  //   console.log(
-  //     "%5.1Lf C.AU: %5.1Lf = %5.1Lf ef + %5.1Lf gh%c (W: %4.2Lf (%4.2Lf) C: %4.2Lf (%4.2Lf) I: %4.2Lf A: (%4.2Lf))\n",
-  //     planet.a,
-  //     planet.surf_temp - C.FREEZING_POINT_OF_WATER,
-  //     effective_temp - C.FREEZING_POINT_OF_WATER,
-  //     greenhouse_temp,
-  //     greenhouse_effect ? "*" : " ",
-  //     planet.hydrosphere,
-  //     water_raw,
-  //     planet._cloudCover,
-  //     clouds_raw,
-  //     planet.ice_cover,
-  //     planet.albedo
-  //   );
+  return get_temp_range(planet);
 };
 
+// OUTPUT IS TOO HIGH for temp_range
 export const iterate_surface_temp = planet => {
-  let count = 0;
-  let initial_temp = est_temp(planet.sun.r_ecosphere, planet.a, planet.albedo);
-  let h2_life = gas_life(C.MOL_HYDROGEN, planet);
-  let h2o_life = gas_life(C.WATER_VAPOR, planet);
-  let n2_life = gas_life(C.MOL_NITROGEN, planet);
-  let n_life = gas_life(C.ATOMIC_NITROGEN, planet);
+  const initial_temp = est_temp(planet.system.ecosphereRadius, planet.a, planet.albedo);
+  // const h2_life  = gas_life (C.MOL_HYDROGEN, planet);
+  // const h2o_life = gas_life (C.WATER_VAPOR, planet);
+  // const n2_life  = gas_life (C.MOL_NITROGEN, planet);
+  // const n_life   = gas_life (C.ATOMIC_NITROGEN, planet);
 
-  // if (DEBUG)
-  //   console.error(
-  //     "%d: %5.1Lf it [%5.1Lf re %5.1Lf a %5.1Lf alb]\n",
-  //     planet.planet_no,
-  //     initial_temp,
-  //     planet.sun.r_ecosphere,
-  //     planet.a,
-  //     planet.albedo
-  //   );
+  planet._temperature = calculate_surface_temp(planet, true, 0, 0, 0, 0, 0);
 
-  // if (DEBUG)
-  //   console.error(
-  //     "\nGas lifetimes: H2 - %Lf, H2O - %Lf, N - %Lf, N2 - %Lf\n",
-  //     h2_life,
-  //     h2o_life,
-  //     n_life,
-  //     n2_life
-  //   );
+  for (let count = 0; count <= 25; count++) {
+    const last_water	= planet._waterCover;
+    const last_clouds	= planet._cloudCover;
+    const last_ice	= planet._iceCover;
+    const last_temp	= planet._surfaceTemperature;
+    const last_albedo	= planet._albedo;
 
-  // TODO: Make sure you compensate for the new return values
-  calculate_surface_temp(planet, true, 0, 0, 0, 0, 0);
+		planet._temperature = calculate_surface_temp(planet, false,
+							   last_water, last_clouds, last_ice,
+							   last_temp, last_albedo);
 
-  for (count = 0; count <= 25; count++) {
-    const last_water = planet.hydrosphere;
-    const last_clouds = planet._cloudCover;
-    const last_ice = planet.ice_cover;
-    const last_temp = planet.surf_temp;
-    const last_albedo = planet.albedo;
-
-    calculate_surface_temp(
-      planet,
-      false,
-      last_water,
-      last_clouds,
-      last_ice,
-      last_temp,
-      last_albedo
-    );
-    if (Math.abs(planet.surf_temp - last_temp) < 0.25) break;
+		if (Math.abs(planet.surfaceTemperature - last_temp) < 0.25)
+			break;
   }
 
-  planet.greenhs_rise = planet.surf_temp - initial_temp;
+  planet._greenhouseTempDelta = planet.surfaceTemperature - initial_temp;
+  return planet._temperature;
+}
 
-  // if (DEBUG)
-  //   console.error(
-  //     "%d: %5.1Lf gh = %5.1Lf (%5.1Lf C) st - %5.1Lf it [%5.1Lf re %5.1Lf a %5.1Lf alb]\n",
-  //     planet.planet_no,
-  //     planet.greenhs_rise,
-  //     planet.surf_temp,
-  //     planet.surf_temp - C.FREEZING_POINT_OF_WATER,
-  //     initial_temp,
-  //     planet.sun.r_ecosphere,
-  //     planet.a,
-  //     planet.albedo
-  //   );
-};
+// OUTPUT IS TOO LOW for temp_range
+export const iterate_surface_temp2 = planet => {
+  let surf1_temp, effective_temp, greenhs_rise, previous_temp, optical_depth, albedo, water, clouds, ice;
+
+  optical_depth = planet.opacity;
+  effective_temp = planet.effectiveTemperature;
+  greenhs_rise = planet.greenhouseTempDelta;
+  surf1_temp = effective_temp + greenhs_rise;
+
+  previous_temp = surf1_temp - 5.0;		/* force the while loop the first time */
+
+  let iterations = 0;
+
+  while (Math.abs(surf1_temp - previous_temp) > 1.0 && iterations++ < 1000) {
+    previous_temp = surf1_temp;
+    planet._waterCover = planet._cloudCover = planet._iceCover = undefined;
+
+    water = planet.waterCover;
+    clouds = planet.cloudCover;
+    ice = planet.iceCover;
+
+    if (surf1_temp >= planet.boilingPoint || surf1_temp <= C.FREEZING_POINT_OF_WATER)
+      water = 0.0;
+
+    albedo = planet_albedo(water, clouds, ice, planet.surfacePressure);
+    optical_depth = opacity(planet.moleculeLimit, planet.surfacePressure);
+    effective_temp = eff_temp(planet.system.ecosphereRadius, planet.a, albedo);
+    greenhs_rise = green_rise(optical_depth, effective_temp, planet.surfacePressure);
+    surf1_temp = effective_temp + greenhs_rise;
+  }
+
+  planet._greenhouseTempDelta = greenhs_rise;
+  planet._effectiveTemperature = effective_temp;
+  planet._surfaceTemperature = surf1_temp;
+
+  planet._waterCover = water;
+  planet._cloudCover = clouds;
+  planet._iceCover = ice;
+  planet._albedo = albedo;
+
+  return get_temp_range(planet);
+}
 
 /*--------------------------------------------------------------------------*/
 /*	 Inspired partial pressure, taking into account humidification of the	*/
@@ -775,11 +793,12 @@ export const inspired_partial_pressure = (surf_pressure, gas_pressure) => {
 /*   of the planet's atmosphere.                                       C.JLB  */
 /*--------------------------------------------------------------------------*/
 
-export const breathability = planet => {
+export const breathable = planet => {
   let oxygen_ok = false;
   let index;
 
-  if (planet.gases == 0) return C.NONE;
+  if (planet.gases == 0) return false;
+
   for (index = 0; index < planet.gases; index++) {
     let n;
     let gas_no = 0;
@@ -798,7 +817,7 @@ export const breathability = planet => {
       oxygen_ok = ipp >= C.MIN_O2_IPP && ipp <= C.MAX_O2_IPP;
   }
 
-  return oxygen_ok ? C.BREATHABLE : C.UNBREATHABLE;
+  return oxygen_ok ? 'BREATHABLE' : 'UNBREATHABLE';
 };
 
 /* function for 'soft limiting' temperatures */
@@ -807,32 +826,77 @@ export const lim = x => x / Math.sqrt(Math.sqrt(1 + x * x * x * x));
 export const soft = (v, max, min) => {
   const dv = v - min;
   const dm = max - min;
-  return (lim((2 * dv) / dm - 1 + 1) / 2) * dm + min;
+  return (lim((2 * dv) / dm - 1) + 1) / 2 * dm + min;
 };
 
-export const get_temp_range = (planet, surf_temp) => {
-  console.log(`SETTING TEMP RANGE FOR PLANET`);
-  const pressmod = 1 / Math.sqrt(1 + (20 * planet.surfacePressure) / 1000.0);
-  const ppmod = 1 / Math.sqrt(10 + (5 * planet.surfacePressure) / 1000.0);
-  const tiltmod = Math.abs(
-    Math.cos((planet.axialTilt * Math.PI) / 180) * Math.pow(1 + planet.e, 2)
-  );
-  const daymod = 1 / (200 / planet.dayLength + 1);
-  const max = surf_temp + Math.sqrt(surf_temp) * 10;
-  const min = surf_temp / Math.sqrt(planet.dayLength + 24);
+export const get_temp_range = planet => {
+  var pressmod = 1 / Math.sqrt(1 + 20 * planet.surfacePressure / 1000.0);
+  var ppmod = 1 / Math.sqrt(10 + 5 * planet.surfacePressure / 1000.0);
+  var tiltmod = Math.abs(Math.cos(planet.axialTilt * Math.PI / 180) * Math.pow(1 + planet.e, 2));
+  var daymod = 1 / (200 / planet.dayLength + 1);
+  var mh = Math.pow(1 + daymod, pressmod);
+  var ml = Math.pow(1 - daymod, pressmod);
+  var hi = mh * planet.surfaceTemperature;
 
-  const mh = Math.pow(1 + daymod, pressmod);
-  const ml = Math.pow(1 - daymod, pressmod);
-  const hi = mh * surf_temp;
-  const lo = Math.max(min, ml * surf_temp);
-  const sh = hi + Math.pow((100 + hi) * tiltmod, Math.sqrt(ppmod));
-  const wl = Math.max(0, lo - Math.pow((150 + lo) * tiltmod, Math.sqrt(ppmod)));
+  var max = planet.surfaceTemperature + Math.sqrt(planet.surfaceTemperature) * 10;
+  var min = planet.surfaceTemperature / Math.sqrt(planet.dayLength + 24);
+
+  var lo = Math.max(min, ml * planet.surfaceTemperature);
+  var sh = hi + Math.pow((100 + hi) * tiltmod, Math.sqrt(ppmod));
+  var wl = Math.max(0, lo - Math.pow((150 + lo) * tiltmod, Math.sqrt(ppmod)));
 
   return {
-    high: soft(hi, max, min),
-    low: soft(lo, max, min),
+    day: soft(hi, max, min),
+    night: soft(lo, max, min),
     max: soft(sh, max, min),
     min: soft(wl, max, min),
-    surface: surf_temp
+    avg: planet.surfaceTemperature
   };
-};
+}
+
+// void iterate_surface_temp_moon(stellar_system* system, planet** primary, planet** planet)
+// {
+//   double      surf1_temp;
+//   double      effective_temp;
+//   double      greenhs_rise;
+//   double      previous_temp;
+//   double      optical_depth;
+//   double      albedo = 0;
+//   double      water  = 0;
+//   double      clouds = 0;
+//   double      ice    = 0;
+//   int         num_iter = 0;
+
+//   optical_depth = opacity((*planet)->molec_weight, (*planet)->surf_pressure);
+//   effective_temp = eff_temp(system->r_ecosphere, (*primary)->a, EARTH_ALBEDO);
+//   greenhs_rise = green_rise(optical_depth, effective_temp,
+//           (*planet)->surf_pressure);
+//   surf1_temp = effective_temp + greenhs_rise;
+//   do
+//   {
+//     previous_temp = surf1_temp;
+//     water = water_fraction((*planet)->volatile_gas_inventory,
+//          (*planet)->radius);
+//     clouds = cloud_fraction(surf1_temp,
+//           (*planet)->molec_weight,
+//           (*planet)->radius, water);
+//     ice = ice_fraction(water, surf1_temp);
+//     if ((surf1_temp >= (*planet)->boil_point) ||
+//         (surf1_temp <= FREEZING_POINT_OF_WATER))
+//       water = 0.0;
+//     albedo = planet_albedo(water, clouds, ice, (*planet)->surf_pressure);
+//     if (num_iter++ > 1000)
+//       break;
+//     optical_depth = opacity((*planet)->molec_weight, (*planet)->surf_pressure);
+//     effective_temp = eff_temp(system->r_ecosphere, (*primary)->a, albedo);
+//     greenhs_rise = green_rise(optical_depth, effective_temp,
+//             (*planet)->surf_pressure);
+//     surf1_temp = effective_temp + greenhs_rise;
+//   } while (fabs(surf1_temp - previous_temp) > 1.0);
+
+//   (*planet)->hydrosphere = water;
+//   (*planet)->cloud_cover = clouds;
+//   (*planet)->ice_cover = ice;
+//   (*planet)->albedo = albedo;
+//   (*planet)->surf_temp = surf1_temp;
+// }

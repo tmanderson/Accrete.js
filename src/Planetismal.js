@@ -1,7 +1,13 @@
 import {
   EARTH_EXOSPHERE_TEMP,
   SOLAR_MASS_IN_EARTH_MASS,
-  PROTOPLANET_MASS
+  PROTOPLANET_MASS,
+  EARTH_ALBEDO,
+  GAS_GIANT_ALBEDO,
+  FREEZING_POINT_OF_WATER,
+  EARTH_RADIUS,
+  KM_EARTH_RADIUS,
+  EARTH_AVERAGE_CELSIUS
 } from "./constants";
 import {
   acceleration,
@@ -21,7 +27,15 @@ import {
   calculate_surface_temp,
   cloud_fraction,
   min_molec_weight,
-  iterate_surface_temp
+  iterate_surface_temp,
+  eff_temp,
+  green_rise,
+  opacity,
+  get_temp_range,
+  empiricalDensity,
+  about,
+  ice_fraction,
+  iterate_surface_temp2
 } from "./Astro";
 
 export default class Planetismal {
@@ -61,14 +75,28 @@ export default class Planetismal {
     return this._radius || (this._radius = kothariRadius(this));
   }
 
+  get iceCover() {
+    return this._iceCover || (this._iceCover = ice_fraction(this.waterCover, this.surfaceTemperature));
+  }
+
+  get waterCover() {
+    return (
+      this._waterCover ||
+      (this._waterCover = hydro_fraction(
+        this.volatileGasInventory,
+        this.radius
+      ))
+    );
+  }
+
   get cloudCover() {
     return (
       this._cloudCover ||
       (this._cloudCover = cloud_fraction(
-        this.temperature.surface,
-        this.moleculeLimit,
+        this.surfaceTemperature,
+        this.molecularWeight,
         this.radius,
-        this.hydrosphere
+        this.waterCover
       ))
     );
   }
@@ -78,10 +106,10 @@ export default class Planetismal {
   }
 
   get exosphericTemperature() {
-    return EARTH_EXOSPHERE_TEMP / Math.pow(this.a, 2);
+    return EARTH_EXOSPHERE_TEMP / Math.pow(this.a / this.system.ecosphereRadius, 2);
   }
 
-  get period() {
+  get orbitalPeriod() {
     return (
       this._period ||
       (this._period = period(this.a, this.mass, this.system.mass))
@@ -111,11 +139,15 @@ export default class Planetismal {
   }
 
   get albedo() {
-    return this._albedo;
+    return this._albedo || (
+      this._albedo = this.isGasGiant
+        ? about(GAS_GIANT_ALBEDO, 0.1)
+        : EARTH_ALBEDO
+    );
   }
 
   get axialTilt() {
-    return inclination(this.radius);
+    return inclination(this.a);
   }
 
   get orbitalZone() {
@@ -123,12 +155,12 @@ export default class Planetismal {
   }
 
   get moleculeLimit() {
-    return molecule_limit(this.mass, this.radius);
+    return molecule_limit(this);
   }
 
-  get moleculeWeight() {
+  get molecularWeight() {
     return (
-      this._moleculeWeight || (this._moleculeWeight = min_molec_weight(this))
+      this._molecularWeight || (this._molecularWeight = min_molec_weight(this))
     );
   }
 
@@ -143,7 +175,31 @@ export default class Planetismal {
   }
 
   get escapeVelocity() {
-    return escape_vel(this.mass, this.radius);
+    return this._escapeVelocity || (this._escapeVelocity = escape_vel(this.mass, this.radius));
+  }
+
+  get opacity() {
+    return this._opacity ||
+      (this._opacity = opacity(this.moleculeLimit, this.surfacePressure));
+  }
+
+  get effectiveTemperature() {
+    return this._effectiveTemperature ||
+      (this._effectiveTemperature = eff_temp(this.system.ecosphereRadius, this.a, this.albedo));
+  }
+
+  /**
+   * Returns the temperature changes on planet due to greenhouse effects
+   * for habitable worlds, this stabelizes.
+   */
+  get greenhouseTempDelta() {
+    return this._greenhouseTempDelta ||
+      (this._greenhouseTempDelta = green_rise(this.opacity, this.effectiveTemperature, this.surfacePressure));
+  }
+
+  get surfaceTemperature() {
+    return this._surfaceTemperature ||
+      ((this._surfaceTemperature = this.effectiveTemperature + this.greenhouseTempDelta));
   }
 
   get temperature() {
@@ -160,15 +216,27 @@ export default class Planetismal {
     return this.temperature.high >= this.boilingPoint;
   }
 
-  get hydrosphere() {
-    return (
-      this._hydrosphere ||
-      (this._hydrosphere = hydro_fraction(
-        this.volatileGasInventory,
-        this.radius
-      ))
-    );
+  get density() {
+    return this._density || (this._density = empiricalDensity(this.mass, this.a, this.system.ecosphereRadius, this.isGasGiant));
   }
+
+  get planetType() {
+    if (this.dayLength === this.orbitalPeriod * 24 || this.resonant_period) return 'Tidally locked';
+    if (this.waterCover >= 0.95) return 'Water';
+    if (this.iceCover >= 0.95) return 'Ice';
+    if (this.waterCover > 0.05) return 'Terrestrial';
+    if (this.temperature.max > this.boilingPoint) return 'Venusian';
+    if (this.surfacePressure <= 250.0) return 'Martian';
+
+    if (this.isGasGiant) {
+      const radRatio = this.radius / KM_EARTH_RADIUS;
+      if (radRatio <= 1.7) return 'Gas';
+      if (radRatio > 1.7 && radRadio < 3.9) return 'Gas Dwarf';
+      return 'Jovian';
+    }
+    if (this.surfaceTemperature < FREEZING_POINT_OF_WATER) return 'Ice';
+  }
+
   /**
    * TODO: The eccentricity is RELATIVE to the planets displacement from the star
    *  ((majorAxis + this.e) - majorAxis + this.e)
@@ -237,23 +305,30 @@ export default class Planetismal {
     return this;
   };
 
-  toJSON = () => {
+  toJSON = (units = 'metric') => {
     return {
       aphelion: this.ra,
+      cloudCover: this.cloudCover,
       dayLength: this.dayLength,
       earthMass: this.earthMass,
       eccentricity: this.e,
-      hydrosphere: this.hydrosphere,
+      iceCover: this.iceCover,
       isGasGiant: this.isGasGiant,
-      orbitalZone: this.orbitalZone,
       orbitalRadius: this.a,
+      orbitalZone: this.orbitalZone,
       perihelion: this.rp,
-      period: this.period,
+      period: this.orbitalPeriod,
       radius: this.radius,
       surfaceGravity: this.surfaceGravity,
       surfacePressure: this.surfacePressure,
+      temperature: Object.entries(this.temperature).reduce((temps, [k, v]) => ({
+        ...temps,
+        // TODO: figure out why temperature outputs are off by 14C
+        [k]: (v - EARTH_AVERAGE_CELSIUS)
+      }), {}),
+      type: this.planetType,
       volatileGasInventory: this.volatileGasInventory,
-      // temperature: this.temperature,
+      waterCover: this.waterCover,
       xa: this.xa,
       xp: this.xp
     };
