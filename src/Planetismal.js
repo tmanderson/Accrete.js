@@ -5,9 +5,7 @@ import {
   EARTH_ALBEDO,
   GAS_GIANT_ALBEDO,
   FREEZING_POINT_OF_WATER,
-  EARTH_RADIUS,
-  KM_EARTH_RADIUS,
-  EARTH_AVERAGE_CELSIUS
+  KM_EARTH_RADIUS
 } from "./constants";
 import {
   acceleration,
@@ -24,19 +22,18 @@ import {
   pressure,
   boiling_point,
   inclination,
-  calculate_surface_temp,
   cloud_fraction,
   min_molec_weight,
   iterate_surface_temp,
   eff_temp,
   green_rise,
   opacity,
-  get_temp_range,
   empiricalDensity,
   about,
   ice_fraction,
-  iterate_surface_temp2
+  breathable
 } from "./Astro";
+import { convert } from "./utils";
 
 export default class Planetismal {
   get rp() {
@@ -236,6 +233,10 @@ export default class Planetismal {
     if (this.waterCover > 0.05) return 'Terrestrial';
   }
 
+  get breathable() {
+    return breathable(this);
+  }
+
   /**
    * TODO: The eccentricity is RELATIVE to the planets displacement from the star
    *  ((majorAxis + this.e) - majorAxis + this.e)
@@ -304,29 +305,38 @@ export default class Planetismal {
     return this;
   };
 
-  toJSON = (units = 'metric') => {
+  toJSON = (units = 'empirical', precision = 2) => {
+    const c = convert[units];
+
     return {
-      aphelion: this.ra,
-      boilingPoint: this.boilingPoint,
-      cloudCover: this.cloudCover,
-      dayLength: this.dayLength,
-      earthMass: this.earthMass,
-      eccentricity: this.e,
-      iceCover: this.iceCover,
-      isGasGiant: this.isGasGiant,
-      orbitalPeriod: this.orbitalPeriod,
-      orbitalRadius: this.a,
+      aphelion: `${this.ra.toFixed(precision)} AU`,
+      boilingPoint: `${c.temp(this.boilingPoint).toFixed(precision)} ${c.temp.label}`,
+      breathable: this.breathable,
+      cloudCover: `${(this.cloudCover * 100).toFixed(precision)}%`,
+      dayLength: `${this.dayLength.toFixed(precision)} Hours`,
+      earthMass: `${this.earthMass.toFixed(precision)} M⊕`,
+      eccentricity: `${this.e.toFixed(precision)}`,
+      iceCover: `${(this.iceCover * 100).toFixed(precision)}%`,
+      isGasGiant: this.isGasGiant ? 'Yes' : 'No',
+      orbitalPeriod: `${this.orbitalPeriod.toFixed(precision)} Days`,
+      orbitalRadius: `${this.a.toFixed(precision)} AU`,
       orbitalZone: this.orbitalZone,
-      perihelion: this.rp,
-      radius: this.radius,
-      surfaceGravity: this.surfaceGravity,
-      surfacePressure: this.surfacePressure,
-      temperature: this.temperature,
+      perihelion: `${this.rp.toFixed(precision)} AU`,
+      radius: `${c.dist(this.radius).toFixed(precision)} ${c.dist.label}`,
+      surfaceGravity: `${this.surfaceGravity.toFixed(precision)} gs`,
+      surfacePressure: `${this.surfacePressure.toFixed(precision)} mb`,
+      temperature: {
+        min: `${c.temp(this.temperature.min).toFixed(precision)} ${c.temp.label}`,
+        max: `${c.temp(this.temperature.max).toFixed(precision)} ${c.temp.label}`,
+        day: `${c.temp(this.temperature.day).toFixed(precision)} ${c.temp.label}`,
+        night: `${c.temp(this.temperature.night).toFixed(precision)} ${c.temp.label}`,
+        avg: `${c.temp(this.temperature.avg).toFixed(precision)} ${c.temp.label}`,
+      },
       type: this.planetType,
-      volatileGasInventory: this.volatileGasInventory,
-      waterCover: this.waterCover,
-      xa: this.xa,
-      xp: this.xp
+      volatileGasInventory: this.volatileGasInventory.toFixed(precision),
+      waterCover: `${(this.waterCover * 100).toFixed(precision)}%`,
+      xa: `${this.xa.toFixed(precision)} AU`,
+      xp: `${this.xp.toFixed(precision)} AU`
     };
   };
 }

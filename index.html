@@ -137,6 +137,7 @@
       var accrete = new Worker("dist/accrete.worker.js");
       var canvas = document.querySelector("canvas");
       var planets;
+
       canvas.height = document.body.offsetHeight;
       canvas.width = document.body.offsetWidth;
 
@@ -149,20 +150,18 @@
       var btn = document.querySelector("button");
       var loadingInterval;
 
-      canvas.addEventListener('click', function(event) {
-        if(event.region) {
-          const selected = planets[event.region.split('-')[1]];
-          if (!selected) return;
-          const infoDiv = document.getElementById('selectedPlanet');
-          infoDiv.innerHTML = Object.entries(selected)
-            .map(([k, v]) => `<div>${typeof v === 'number'
-              ? `<strong>${k}:</strong> <span>${v.toFixed('3')}</span>`
-              : typeof v === 'object'
-                ? `<strong>${k}</strong><br />
-                  ${Object.entries(v).map(([k, v]) => `&nbsp;&nbsp;${k}: ${v.toFixed(2)}`).join('<br />')}`
-                : `<strong>${k}:</strong> <span>${v}</span>`
-            }`).join('\n')
-        }
+      canvas.addEventListener('click', function({ pageX: x, pageY: y }) {
+        const selected = planets.find(p => Math.sqrt((p.x - x) * (p.x - x) + (p.y - y) * (p.y - y)) < 10);
+        if (!selected) return;
+        const infoDiv = document.getElementById('selectedPlanet');
+        infoDiv.innerHTML = Object.entries(selected)
+          .map(([k, v]) => `<div>${typeof v === 'number'
+            ? `<strong>${k}:</strong> <span>${v.toFixed(3)}</span>`
+            : typeof v === 'object'
+              ? `<strong>${k}</strong><br />
+                ${Object.entries(v).map(([k, v]) => `&nbsp;&nbsp;${k}: ${v}`).join('<br />')}`
+              : `<strong>${k}:</strong> <span>${v}</span>`
+          }`).join('\n')
       });
 
       function createSystem() {
@@ -241,25 +240,34 @@
         ctx.beginPath();
         ctx.fillStyle = "white";
 
-        const au = Math.log10(p.orbitalRadius);
+        const orbitalRadius = parseFloat(p.orbitalRadius);
+        const earthMass = parseFloat(p.earthMass);
+        const aphelion = parseFloat(p.aphelion);
+        const perihelion = parseFloat(p.perihelion);
+        const xa = parseFloat(p.xa);
+        const xp = parseFloat(p.xp);
 
-        const rad = Math.pow(p.earthMass, 1 / 3);
+        const au = Math.log10(orbitalRadius);
+
+        const rad = Math.pow(earthMass, 1 / 3);
         const r = Math.max(1, rad * rscale);
         const offset = au * hscale;
 
         const x = offset + hscale - r/2;
         const y = vscale - r/2;
 
-        const au_p =
-          r * Math.log10(p.orbitalRadius + (p.orbitalRadius - p.perihelion) / p.orbitalRadius - p.xp);
-        const au_a =
-          r * Math.log10(p.orbitalRadius + (p.aphelion - p.orbitalRadius) / p.orbitalRadius + p.xa);
+        p.x = x;
+        p.y = y;
 
+        const au_p =
+          r * Math.log10(orbitalRadius + (orbitalRadius - perihelion) / orbitalRadius - xp);
+        const au_a =
+          r * Math.log10(orbitalRadius + (aphelion - orbitalRadius) / p.orbitalRadius + xa);
 
         const stripeScale = 2;
         const fh = Math.round((2 * r) / stripeScale);
         const hfh = fh / 2;
-        console.log(p.type);
+
         ctx.arc(x, y, r, 0, 2 * Math.PI);
 
         if (p.isGasGiant) {
@@ -278,7 +286,6 @@
 
         ctx.fill();
         ctx.stroke();
-        ctx.addHitRegion({ id: `planet-${idx}`, cursor: 'pointer' });
 
         if(p.type === 'Terrestrial') {
           ctx.fillStyle = 'white';
@@ -299,8 +306,8 @@
 
         ctx.stroke();
 
-        var axisLabel = p.orbitalRadius.toFixed(2) + " AU";
-        var massLabel = p.earthMass.toFixed(2) + " M⊕";
+        var axisLabel = orbitalRadius;
+        var massLabel = earthMass;
         ctx.fillStyle = "black";
 
         ctx.fillText(

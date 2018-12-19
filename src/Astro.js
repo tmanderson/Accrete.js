@@ -6,17 +6,6 @@ import { rand } from "./utils";
 
 export const about = (val, variance) => val + val * rand(-variance, variance);
 
-export const convert = {
-  metric: {
-    kelvinToCelsius: k => k - 273.15
-  },
-  empirical: {
-    kelvinToFahrenheit: k => k * 9 / 5 - 495.67,
-    kgToPounds: kg => kg * 2.205,
-    kmToMiles: km => km / 1.609,
-  }
-}
-
 export const luminosity = mass => {
   const n = mass < 1 ? 1.75 * (mass - 0.1) + 3.325 : 0.5 * (2.0 - mass) + 4.4;
 
