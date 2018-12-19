@@ -38,6 +38,16 @@
         display: flex;
       }
 
+      aside > div:last-child {
+        background-color: white;
+        display: flex;
+        flex-direction: column;
+      }
+
+      aside > div:last-child div > strong {
+        text-transform: capitalize;
+      }
+
       aside > div > label {
         flex: 1 1 auto;
         width: 20%;
@@ -117,11 +127,16 @@
         <label>Defaults</label> <input type="checkbox" name="default" />
       </div>
       <button>Generate Star System</button>
+      <br />
+      <div id="selectedPlanet">
+
+      </div>
     </aside>
     <canvas></canvas>
     <script>
       var accrete = new Worker("dist/accrete.worker.js");
       var canvas = document.querySelector("canvas");
+      var planets;
       canvas.height = document.body.offsetHeight;
       canvas.width = document.body.offsetWidth;
 
@@ -134,7 +149,24 @@
       var btn = document.querySelector("button");
       var loadingInterval;
 
+      canvas.addEventListener('click', function(event) {
+        if(event.region) {
+          const selected = planets[event.region.split('-')[1]];
+          if (!selected) return;
+          const infoDiv = document.getElementById('selectedPlanet');
+          infoDiv.innerHTML = Object.entries(selected)
+            .map(([k, v]) => `<div>${typeof v === 'number'
+              ? `<strong>${k}:</strong> <span>${v.toFixed('3')}</span>`
+              : typeof v === 'object'
+                ? `<strong>${k}</strong><br />
+                  ${Object.entries(v).map(([k, v]) => `&nbsp;&nbsp;${k}: ${v.toFixed(2)}`).join('<br />')}`
+                : `<strong>${k}:</strong> <span>${v}</span>`
+            }`).join('\n')
+        }
+      });
+
       function createSystem() {
+        document.getElementById('selectedPlanet').innerHTML = '';
         accrete.postMessage(getConstValues());
         Array.from(document.querySelectorAll("aside input")).forEach(
           el => (el.disabled = true)
@@ -223,10 +255,11 @@
         const au_a =
           r * Math.log10(p.orbitalRadius + (p.aphelion - p.orbitalRadius) / p.orbitalRadius + p.xa);
 
+
         const stripeScale = 2;
         const fh = Math.round((2 * r) / stripeScale);
         const hfh = fh / 2;
-
+        console.log(p.type);
         ctx.arc(x, y, r, 0, 2 * Math.PI);
 
         if (p.isGasGiant) {
@@ -238,8 +271,19 @@
           }
         }
 
+        if(p.type === 'Terrestrial') {
+          ctx.fillStyle = 'rgb(0, 122, 204)';
+          ctx.strokeStyle = 'rgb(0, 122, 204)';
+        }
+
         ctx.fill();
         ctx.stroke();
+        ctx.addHitRegion({ id: `planet-${idx}`, cursor: 'pointer' });
+
+        if(p.type === 'Terrestrial') {
+          ctx.fillStyle = 'white';
+          ctx.strokeStyle = 'black';
+        }
         ctx.beginPath();
 
         ctx.moveTo(x, y + r + 50);
@@ -269,11 +313,6 @@
           x - ctx.measureText(massLabel).width / 2,
           y + (idx % 2 ? -1 : 1) * (r + (idx % 2 ? 20 : 90))
         );
-        ctx.fillText(
-          p.dayLength,
-          x - ctx.measureText(massLabel).width / 2,
-          y + (idx % 2 ? -1 : 1) * (r + (idx % 2 ? 40 : 120))
-        );
       }
 
       drawGrid();
@@ -287,12 +326,12 @@
         btn.innerText = "Generate Star System";
         clearInterval(loadingInterval);
 
-        const planets = e.data;
+        planets = e.data;
         var s = 50 / canvas.width;
         var inc = 100;
 
         drawGrid();
-        console.log(planets.sort((p1, p2) => p1.orbitalRadius - p2.orbitalRadius));
+
         planets
           .sort((p1, p2) => p1.axis - p2.axis)
           .map((p, i) => {

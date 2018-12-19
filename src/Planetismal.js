@@ -221,20 +221,19 @@ export default class Planetismal {
   }
 
   get planetType() {
-    if (this.dayLength === this.orbitalPeriod * 24 || this.resonant_period) return 'Tidally locked';
-    if (this.waterCover >= 0.95) return 'Water';
-    if (this.iceCover >= 0.95) return 'Ice';
-    if (this.waterCover > 0.05) return 'Terrestrial';
-    if (this.temperature.max > this.boilingPoint) return 'Venusian';
-    if (this.surfacePressure <= 250.0) return 'Martian';
-
+    if (this.dayLength === this.orbitalPeriod * 24 || this.resonant_period) return 'Rocky';
     if (this.isGasGiant) {
       const radRatio = this.radius / KM_EARTH_RADIUS;
       if (radRatio <= 1.7) return 'Gas';
-      if (radRatio > 1.7 && radRadio < 3.9) return 'Gas Dwarf';
+      if (radRatio > 1.7 && radRatio < 3.9) return 'Gas Dwarf';
       return 'Jovian';
     }
-    if (this.surfaceTemperature < FREEZING_POINT_OF_WATER) return 'Ice';
+    if (this.temperature.max > this.boilingPoint) return 'Venusian';
+    if (this.temperature.day < FREEZING_POINT_OF_WATER) return 'Ice';
+    if (this.surfacePressure <= 250.0) return 'Martian';
+    if (this.waterCover >= 0.95) return 'Water';
+    if (this.iceCover >= 0.95) return 'Ice';
+    if (this.waterCover > 0.05) return 'Terrestrial';
   }
 
   /**
@@ -308,6 +307,7 @@ export default class Planetismal {
   toJSON = (units = 'metric') => {
     return {
       aphelion: this.ra,
+      boilingPoint: this.boilingPoint,
       cloudCover: this.cloudCover,
       dayLength: this.dayLength,
       earthMass: this.earthMass,

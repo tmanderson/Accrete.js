@@ -1,7 +1,7 @@
 import * as C from "./constants";
 import { rand } from "./utils";
 
-// C.NOTE: This file is not currently used, but the plan is in the works.
+// NOTE: This file is not currently used, but the plan is in the works.
 // Currently, all contents that of StarGen's (http://eldacur.com/~brons/NerdCorner/StarGen/StarGen.html)
 
 export const about = (val, variance) => val + val * rand(-variance, variance);
