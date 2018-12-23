@@ -70,7 +70,7 @@ export default class StarSystem {
 
   injectNucleus() {
     const a = rand(0.3, 50);
-    const e = 1 - Math.pow(rand(), this.config.Q);
+    const e = 1 - Math.pow(1 - rand(), this.config.Q);
     const nucleus = new Planetismal(this, a, e);
     const planet = this.collectDust(nucleus);
     if (planet.mass > C.PROTOPLANET_MASS) this.planets.push(planet);

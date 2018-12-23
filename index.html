@@ -133,8 +133,9 @@
       </div>
     </aside>
     <canvas></canvas>
+    <script src="dist/accrete.js"></script>
     <script>
-      var accrete = new Worker("dist/accrete.worker.js");
+      // var accrete = new Worker("dist/accrete.worker.js");
       var canvas = document.querySelector("canvas");
       var planets;
 
@@ -165,20 +166,32 @@
       });
 
       function createSystem() {
-        document.getElementById('selectedPlanet').innerHTML = '';
-        accrete.postMessage(getConstValues());
-        Array.from(document.querySelectorAll("aside input")).forEach(
-          el => (el.disabled = true)
-        );
-        btn.disabled = true;
-        var i = 0;
+        const system = new Accrete.StarSystem(getConstValues());
+        system.create();
 
-        loadingInterval = setInterval(function() {
-          var l = ((e.target.innerText.match(/\.+$/) || [])[1] || "").length;
-          i += 1;
-          e.target.innerText =
-            "Generating" + new Array(i % 4).fill(".").join("");
-        }, 500);
+        planets = system.planets.map(p => p.toJSON());
+        document.getElementById('selectedPlanet').innerHTML = '';
+
+        btn.disabled = false;
+        btn.innerText = "Generate Star System";
+        clearInterval(loadingInterval);
+
+        var s = 50 / canvas.width;
+        var inc = 100;
+
+        drawGrid();
+
+        planets
+          .sort((p1, p2) => p1.axis - p2.axis)
+          .map((p, i) => {
+            var shade = Math.floor(
+              ((0.6 * planets.length - i) / planets.length) * 255
+            );
+            var rgba = [shade, shade, shade, 1];
+            ctx.fillStyle = `rgba(${rgba.join(",")})`;
+
+            drawPlanet(p, i);
+          });
       }
 
       btn.onclick = createSystem;
@@ -323,34 +336,6 @@
       }
 
       drawGrid();
-
-      accrete.onmessage = function(e) {
-        Array.from(document.querySelectorAll("aside input")).forEach(
-          el => (el.disabled = false)
-        );
-
-        btn.disabled = false;
-        btn.innerText = "Generate Star System";
-        clearInterval(loadingInterval);
-
-        planets = e.data;
-        var s = 50 / canvas.width;
-        var inc = 100;
-
-        drawGrid();
-
-        planets
-          .sort((p1, p2) => p1.axis - p2.axis)
-          .map((p, i) => {
-            var shade = Math.floor(
-              ((0.6 * planets.length - i) / planets.length) * 255
-            );
-            var rgba = [shade, shade, shade, 1];
-            ctx.fillStyle = `rgba(${rgba.join(",")})`;
-
-            drawPlanet(p, i);
-          });
-      };
     </script>
   </body>
 </html>

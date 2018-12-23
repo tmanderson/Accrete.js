@@ -5,7 +5,8 @@ import {
   EARTH_ALBEDO,
   GAS_GIANT_ALBEDO,
   FREEZING_POINT_OF_WATER,
-  KM_EARTH_RADIUS
+  KM_EARTH_RADIUS,
+  CM_PER_KM
 } from "./constants";
 import {
   acceleration,
@@ -36,6 +37,7 @@ import {
 import { convert } from "./utils";
 
 export default class Planetismal {
+  // DOLE PROPERTIES
   get rp() {
     return this.a * (1 - this.e);
   }
@@ -52,7 +54,7 @@ export default class Planetismal {
   }
 
   get normalizedMass() {
-    return this.mass / (1 + this.mass);
+    return this.mass / (1 + this.system.mass);
   }
 
   get earthMass() {
@@ -286,6 +288,7 @@ export default class Planetismal {
   };
 
   // Dole's discrete mass function of the mass
+  // Returns mass (in earth masses) of dust given density `p`
   massDensity = p => {
     const { N, W } = this.system.config;
     const t1 =
@@ -293,6 +296,13 @@ export default class Planetismal {
     const t2 = this.e + this.quadMass + W + W * this.e * this.quadMass;
     return t1 * t2;
   };
+
+  accreteMatter = density => {
+    this._density = (this._density || 0) + density;
+    const mass = this.massDensity(density) - this.mass;
+    this.addMass(mass);
+    return density;
+  }
 
   addMass = m => {
     // Invalidate memoized props
@@ -309,15 +319,20 @@ export default class Planetismal {
     const c = convert[units];
 
     return {
+      albedo: `${this.albedo.toFixed(precision)}`,
       aphelion: `${this.ra.toFixed(precision)} AU`,
+      axialTilt: `${this.axialTilt.toFixed(precision)}°`,
       boilingPoint: `${c.temp(this.boilingPoint).toFixed(precision)} ${c.temp.label}`,
-      breathable: this.breathable,
+      // breathable: this.breathable, // still not ready
       cloudCover: `${(this.cloudCover * 100).toFixed(precision)}%`,
       dayLength: `${this.dayLength.toFixed(precision)} Hours`,
+      density: `${this.density.toFixed(precision)}`,
       earthMass: `${this.earthMass.toFixed(precision)} M⊕`,
       eccentricity: `${this.e.toFixed(precision)}`,
+      escapeVelocity: `${c.dist((this.escapeVelocity / CM_PER_KM)).toFixed(precision)} ${c.dist.label}/s²`,
       iceCover: `${(this.iceCover * 100).toFixed(precision)}%`,
       isGasGiant: this.isGasGiant ? 'Yes' : 'No',
+      molecularWeight: `${this.moleculeLimit.toFixed(precision)}`,
       orbitalPeriod: `${this.orbitalPeriod.toFixed(precision)} Days`,
       orbitalRadius: `${this.a.toFixed(precision)} AU`,
       orbitalZone: this.orbitalZone,

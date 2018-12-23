@@ -273,20 +273,24 @@ export const vol_inventory = planet => {
  * @param {Number} equat_radius - The radius (km) for a planet
  * @param {Number} gravity - The gravity (earth gravities, or g's) for a planet
  *
- * @returns {Number} The surface pressure in millbars
+ * @returns {Number} The surface pressure in millibars
  */
 export const pressure = (volatile_gas_inventory, equat_radius, gravity) => {
   return volatile_gas_inventory * gravity * Math.pow(C.KM_EARTH_RADIUS / equat_radius, 2);
 };
 
-/*--------------------------------------------------------------------------*/
-/*	 This function returns the boiling poof water in an atmosphere of	*/
-/*	 pressure 'surf_pressure', given in millibars.	The boiling pois	*/
-/*	 returned in units of Kelvin.  This is Fogg's eq.21.					*/
-/*--------------------------------------------------------------------------*/
+/**
+ * Using the equation for _bp_ from Hart's "The Evolution of the Atmosphere of Earth" on pg. 24
+ *
+ * @param {Number} surf_pressure - Surface pressure of planet in millibars
+ *
+ * @returns {Number} - The boiling point of HO_2
+ */
 export const boiling_point = surf_pressure => {
-  const surface_pressure_in_bars = surf_pressure / C.MILLIBARS_PER_BAR;
-  return 1.0 / (Math.log(surface_pressure_in_bars) / -5050.5 + 1.0 / 373.0);
+  const surface_pressure_in_atmospheres = surf_pressure / C.EARTH_SURF_PRES_IN_MILLIBARS;
+  return 373.15 *
+    (5.78 - 0.15 * Math.log(surface_pressure_in_atmospheres)) /
+    (5.78 - 1.15 * Math.log(surface_pressure_in_atmospheres));
 };
 
 /*--------------------------------------------------------------------------*/
@@ -310,7 +314,8 @@ export const hydro_fraction = (volatile_gas_inventory, planet_radius) => {
 /*	 This equation is Hart's eq.3.											*/
 /*	 I have modified it slightly using constants and relationships from		*/
 /*	 Glass's book "Introduction to Planetary Geology", p.46.				*/
-/*	 The 'CLOUD_COVERAGE_FACTOR' is the amount of surface area on Earth		*/
+/*
+/*   The 'CLOUD_COVERAGE_FACTOR' is the amount of surface area on Earth		*/
 /*	 covered by one Kg. of cloud.											*/
 /*--------------------------------------------------------------------------*/
 export const cloud_fraction = (
@@ -597,8 +602,6 @@ export const calculate_surface_temp = (
   last_temp = planet._surfaceTemperature || 0,
   last_albedo = planet._albedo || C.EARTH_ALBEDO
 ) => {
-  const ecosphereRadius = planet.system.ecosphereRadius;
-
   let greenhouse_effect = greenhouse(planet);
   let effective_temp;
   let surf_temp;
@@ -606,18 +609,9 @@ export const calculate_surface_temp = (
   let boil_off = false;
 
   if (first) {
-    planet._albedo = C.EARTH_ALBEDO;
-
-    effective_temp = eff_temp(ecosphereRadius, planet.a, planet.albedo);
-
-    greenhouse_temp = green_rise(
-      opacity(planet.moleculeWeight, planet.surfacePressure),
-      effective_temp,
-      planet.surfacePressure
-    );
-
+    effective_temp = planet.effectiveTemperature;
+    greenhouse_temp = planet.greenhouseTempDelta;
     surf_temp = effective_temp + greenhouse_temp;
-
     planet._temperature = get_temp_range(planet, surf_temp);
   }
 
@@ -642,15 +636,18 @@ export const calculate_surface_temp = (
     else planet._cloudCover = 1.0;
   }
 
-  if (planet.surf_temp < C.FREEZING_POINT_OF_WATER - 3.0)
+  if (planet.surfaceTemperature < C.FREEZING_POINT_OF_WATER - 3.0)
     planet._waterCover = 0.0;
 
   planet._albedo = planet_albedo(
     planet.waterCover,
     planet.cloudCover,
     planet.iceCover,
-    planet.surfacePressure
+    planet.surfaceTemperature
   );
+
+  // unsetting memoized values
+  planet._effectiveTemperature = planet._greenhouseTempDelta = undefined;
 
   effective_temp = planet.effectiveTemperature;
   greenhouse_temp = planet.greenhouseTempDelta;
@@ -661,6 +658,7 @@ export const calculate_surface_temp = (
     if (!boil_off)
       planet._waterCover = (planet.waterCover + last_water * 2) / 3;
     planet._cloudCover = (planet.cloudCover + last_clouds * 2) / 3;
+    console.log();
     planet._iceCover = (planet.iceCover + last_ice * 2) / 3;
     planet._albedo = (planet.albedo + last_albedo * 2) / 3;
     planet._surfaceTemperature = (planet.surfaceTemperature + last_temp * 2) / 3;
@@ -678,17 +676,22 @@ export const iterate_surface_temp = planet => {
   // const n_life   = gas_life (C.ATOMIC_NITROGEN, planet);
 
   planet._temperature = calculate_surface_temp(planet, true, 0, 0, 0, 0, 0);
+  let last_water	= planet._waterCover;
+  let last_clouds	= planet._cloudCover;
+  let last_ice	= planet._iceCover;
+  let last_temp	= planet._surfaceTemperature;
+  let last_albedo	= planet._albedo;
 
   for (let count = 0; count <= 25; count++) {
-    const last_water	= planet._waterCover;
-    const last_clouds	= planet._cloudCover;
-    const last_ice	= planet._iceCover;
-    const last_temp	= planet._surfaceTemperature;
-    const last_albedo	= planet._albedo;
-
-		planet._temperature = calculate_surface_temp(planet, false,
-							   last_water, last_clouds, last_ice,
-							   last_temp, last_albedo);
+    planet._temperature = calculate_surface_temp(
+      planet,
+      false,
+      last_water,
+      last_clouds,
+      last_ice,
+      last_temp,
+      last_albedo
+    );
 
 		if (Math.abs(planet.surfaceTemperature - last_temp) < 0.25)
 			break;
@@ -762,7 +765,7 @@ export const breathable = planet => {
   let oxygen_ok = false;
   let index;
 
-  if (planet.gases == 0) return false;
+  if (planet.gases === 0) return false;
 
   for (index = 0; index < planet.gases; index++) {
     let n;
