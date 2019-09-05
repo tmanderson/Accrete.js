@@ -17,9 +17,9 @@ export default class StarSystem {
   get age() {
     // main sequence lifetime, billions of years
     const msl = 10 * this.mass / this.luminosity;
-    return msl >= 6
+    return this._age || (this._age = msl >= 6
       ? rand(1, 6)
-      : rand(1, msl);
+      : rand(1, msl));
   }
 
   get luminosity() {

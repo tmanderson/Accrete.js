@@ -32,7 +32,8 @@ import {
   empiricalDensity,
   about,
   ice_fraction,
-  breathable
+  breathable,
+  calculate_gases
 } from "./Astro";
 import { convert } from "./utils";
 
@@ -82,7 +83,7 @@ export default class Planetismal {
     return (
       this._waterCover ||
       (this._waterCover = hydro_fraction(
-        this.volatileGasInventory,
+        this.volatileGasInventory, // need this to be correct for cloud/ice/water
         this.radius
       ))
     );
@@ -239,6 +240,10 @@ export default class Planetismal {
     return breathable(this);
   }
 
+  get gasComposition() {
+    return calculate_gases(this.system, this, 0);
+  }
+
   /**
    * TODO: The eccentricity is RELATIVE to the planets displacement from the star
    *  ((majorAxis + this.e) - majorAxis + this.e)
@@ -263,6 +268,8 @@ export default class Planetismal {
     this.e = eccentricity;
     // initial mass
     this.mass = mass;
+    // Used to store gas composition
+    this.atmosphere = [];
     // the quad-root of normalized mass (mass/(mass + 1))
     // Used for gravitational attraction of planetismal
     this.quadMass = Math.pow(this.normalizedMass, 1 / 4);
@@ -270,6 +277,8 @@ export default class Planetismal {
     this.isGasGiant = mass >= this.criticalMass ? true : !!isGasGiant;
     // initial value for the change in mass (updated via `addMass`)
     this.deltaMass = 1;
+    // Mass of accumulated gas (presumably)
+    this._gasMass = 0;
   }
 
   bandwidth = () => {
@@ -305,9 +314,11 @@ export default class Planetismal {
   }
 
   addMass = m => {
+    let isGasGiant = this.isGasGiant;
     // Invalidate memoized props
     this._surfaceGravity = this._surfacePressure = this._dayLength = this._surfaceGravity = this._radius = null;
-
+    
+    this._gasMass += m;
     this.deltaMass = m;
     this.mass = this.mass + m;
     this.quadMass = Math.pow(this.normalizedMass, 1 / 4);
@@ -317,19 +328,21 @@ export default class Planetismal {
 
   toJSON = (units = 'empirical', precision = 2) => {
     const c = convert[units];
-
+    const gases = this.gasComposition;
+    console.log(gases, this.atmosphere);
     return {
       albedo: `${this.albedo.toFixed(precision)}`,
       aphelion: `${this.ra.toFixed(precision)} AU`,
       axialTilt: `${this.axialTilt.toFixed(precision)}°`,
       boilingPoint: `${c.temp(this.boilingPoint).toFixed(precision)} ${c.temp.label}`,
-      // breathable: this.breathable, // still not ready
+      breathable: this.breathable, // still not ready
       cloudCover: `${(this.cloudCover * 100).toFixed(precision)}%`,
       dayLength: `${this.dayLength.toFixed(precision)} Hours`,
       density: `${this.density.toFixed(precision)}`,
       earthMass: `${this.earthMass.toFixed(precision)} M⊕`,
       eccentricity: `${this.e.toFixed(precision)}`,
       escapeVelocity: `${c.dist((this.escapeVelocity / CM_PER_KM)).toFixed(precision)} ${c.dist.label}/s²`,
+      gasComposition: gases.map(({ name, amount }) => `${name} - ${amount}`),
       iceCover: `${(this.iceCover * 100).toFixed(precision)}%`,
       isGasGiant: this.isGasGiant ? 'Yes' : 'No',
       molecularWeight: `${this.moleculeLimit.toFixed(precision)}`,

@@ -331,7 +331,7 @@ export const cloud_fraction = (
 
   surf_area = 4.0 * Math.PI * Math.pow(equat_radius, 2);
   hydro_mass = hydro_fraction * surf_area * C.EARTH_WATER_MASS_PER_AREA;
-  water_vapor_in_kg = 1e-8 * hydro_mass * Math.exp(C.Q2_36 * (surf_temp - C.EARTH_AVERAGE_KELVIN));
+  water_vapor_in_kg = hydro_mass * Math.exp(C.Q2_36 * (surf_temp - C.EARTH_AVERAGE_KELVIN));
   fraction = C.CLOUD_COVERAGE_FACTOR * water_vapor_in_kg / surf_area;
   return Math.min(1, fraction);
 };
@@ -658,7 +658,6 @@ export const calculate_surface_temp = (
     if (!boil_off)
       planet._waterCover = (planet.waterCover + last_water * 2) / 3;
     planet._cloudCover = (planet.cloudCover + last_clouds * 2) / 3;
-    console.log();
     planet._iceCover = (planet.iceCover + last_ice * 2) / 3;
     planet._albedo = (planet.albedo + last_albedo * 2) / 3;
     planet._surfaceTemperature = (planet.surfaceTemperature + last_temp * 2) / 3;
@@ -749,7 +748,7 @@ export const iterate_surface_temp2 = planet => {
 /*	 air in the nasal passage and throat This formula is on Dole's p. 14	*/
 /*--------------------------------------------------------------------------*/
 export const inspired_partial_pressure = (surf_pressure, gas_pressure) => {
-  const pH2O = H20_ASSUMED_PRESSURE;
+  const pH2O = C.H20_ASSUMED_PRESSURE;
   const fraction = gas_pressure / surf_pressure;
   return surf_pressure - pH2O * fraction;
 };
@@ -765,23 +764,23 @@ export const breathable = planet => {
   let oxygen_ok = false;
   let index;
 
-  if (planet.gases === 0) return false;
+  if (planet.atmosphere.length === 0) return false;
 
-  for (index = 0; index < planet.gases; index++) {
+  for (index = 0; index < planet.atmosphere.length; index++) {
     let n;
     let gas_no = 0;
     let ipp = inspired_partial_pressure(
-      planet.surf_pressure,
-      planet.atmosphere[index].surf_pressure
+      planet.surfacePressure,
+      planet.atmosphere[index].surfacePressure
     );
-
-    for (n = 0; n < max_gas; n++) {
+    
+    for (n = 0; n < gases.length; n++) {
       if (gases[n].num == planet.atmosphere[index].num) gas_no = n;
     }
 
     if (ipp > gases[gas_no].max_ipp) return C.POISONOUS;
 
-    if (planet.atmosphere[index].num == C.AN_O)
+    if (planet.atmosphere[index].num === C.AN_O)
       oxygen_ok = ipp >= C.MIN_O2_IPP && ipp <= C.MAX_O2_IPP;
   }
 
@@ -821,6 +820,265 @@ export const get_temp_range = planet => {
     avg: planet.surfaceTemperature
   };
 }
+
+const gases = [
+  //   An   sym   HTML symbol                      name                 Aw      melt    boil    dens       ABUNDe       abunds         Rea	Max inspired pp
+  {
+    An: C.AN_H,
+    sym: "H",
+    htmlSymbol: "H<SUB><SMALL>2</SMALL></SUB>",
+    name: "Hydrogen",
+    weight: 1.0079,
+    melt: 14.06,
+    boil: 20.40,
+    dens: 8.99e-05,
+    ABUNDe: 0.00125893,
+    abunds: 27925.4,
+    reactivity: 1,
+    max_ipp: 0.0
+  },
+  {
+    An: C.AN_HE,
+    sym:"He",
+    htmlSymbol: "He",
+    name: "Helium",
+    weight: 4.0026,
+    melt: 3.46,
+    boil: 4.20,
+    dens: 0.0001787,
+    ABUNDe:7.94328e-09,
+    abunds: .7,
+    reactivity: 0,
+    max_ipp: C.MAX_HE_IPP
+  },
+  {
+    An: C.AN_N,
+    sym: "N",
+    htmlSymbol: "N<SUB><SMALL>2</SMALL></SUB>",
+    name: "Nitrogen",
+    weight: 14.0067,
+    melt: 63.34,
+    boil: 77.40,
+    dens: 0.0012506,
+    ABUNDe:1.99526e-05,
+    abunds: .13329,
+    reactivity: 0,
+    max_ipp: C.MAX_N2_IPP
+  },
+  {
+    An: C.AN_O,
+    sym: "O",
+    htmlSymbol: "O<SUB><SMALL>2</SMALL></SUB>",
+    name: "Oxygen",
+    weight: 15.9994,
+    melt: 54.80,
+    boil: 90.20,
+    dens: 0.001429,
+    ABUNDe: 0.501187,
+    abunds: 23.8232,
+    reactivity: 10,
+    max_ipp: 0
+  },
+  {
+    An: C.AN_NE,
+    sym:"Ne",
+    htmlSymbol: "Ne",
+    name: "Neon",
+    weight: 20.1700,
+    melt: 24.53,
+    boil: 27.10,
+    dens: 0.0009,
+    ABUNDe:   5.01187e-09,
+    abunds: .4435e-5,
+    reactivity: 0,
+    max_ipp: C.MAX_NE_IPP
+  },
+  {
+    An: C.AN_AR,
+    sym:"Ar",
+    htmlSymbol: "Ar",
+    name: "Argon",
+    weight: 39.9480,
+    melt: 84.00,
+    boil: 87.30,
+    dens: 0.0017824,
+    ABUNDe:3.16228e-06,
+    abunds: .100925,
+    reactivity: 0,
+    max_ipp: C.MAX_AR_IPP
+  },
+  {
+    An: C.AN_KR,
+    sym:"Kr",
+    htmlSymbol: "Kr",
+    name: "Krypton",
+    weight: 83.8000,
+    melt: 116.60,
+    boil: .70,
+    dens: 0.003708,
+    ABUNDe: 1e-10,
+    abunds: 4.4978e-05,
+    reactivity: 0,
+    max_ipp: C.MAX_KR_IPP
+  },
+  {
+    An: C.AN_XE,
+    sym:"Xe",
+    htmlSymbol: "Xe",
+    name: "Xenon",
+    weight: 131.3000,
+    melt: 161.30,
+    boil: .00,
+    dens: 0.00588,
+    ABUNDe:  3.16228e-11,
+    abunds: .69894e-06,
+    reactivity: 0,
+    max_ipp: C.MAX_XE_IPP
+  },
+  {
+    An: C.AN_NH3,
+    sym:"NH3",
+    htmlSymbol: "NH<SUB><SMALL>3</SMALL></SUB>",
+    name: "Ammonia",
+    weight: 17.0000,
+    melt: 195.46,
+    boil: .66,
+    dens: 0.001,
+    ABUNDe:    0.002,
+    abunds: 0.0001,
+    reactivity: 1,
+    max_ipp: C.MAX_NH3_IPP
+  },
+  {
+    An: C.AN_H2O,
+    sym:"H2O",
+    htmlSymbol: "H<SUB><SMALL>2</SMALL></SUB>O",
+    name: "Water",
+    weight: 18.0000,
+    melt: 273.16,
+    boil: .16,
+    dens: 1.000,
+    ABUNDe:    0.03,
+    abunds: 0.001,
+    reactivity: 0,
+    max_ipp: 0.0
+  },
+  {
+    An: C.AN_CO2,
+    sym:"CO2",
+    htmlSymbol: "CO<SUB><SMALL>2</SMALL></SUB>",
+    name: "CarbonDioxide",
+    weight: .0000,
+    melt: 194.66,
+    boil: .66,
+    dens: 0.001,
+    ABUNDe:    0.01,
+    abunds: 0.0005,
+    reactivity: 0,
+    max_ipp: C.MAX_CO2_IPP
+  },
+  {
+    An: C.AN_O3,
+    sym:  "O3",
+    htmlSymbol: "O<SUB><SMALL>3</SMALL></SUB>",
+    name: "Ozone",
+    weight: 48.0000,
+    melt: 80.16,
+    boil: .16,
+    dens: 0.001,
+    ABUNDe:    0.001,
+    abunds: 0.000001,
+    reactivity: 2,
+    max_ipp: C.MAX_O3_IPP
+  },
+  {
+    An: C.AN_CH4,
+    sym:"CH4",
+    htmlSymbol: "CH<SUB><SMALL>4</SMALL></SUB>",
+    name: "Methane",
+    weight: 16.0000,
+    melt: 90.16,
+    boil: .16,
+    dens: 0.010,
+    ABUNDe:    0.005,
+    abunds: 0.0001,
+    reactivity: 1,
+    max_ipp: C.MAX_CH4_IPP
+  },
+];
+
+export function calculate_gases(sun, planet, planet_id) {
+  if (planet.surfacePressure <= 0) return [];
+
+  let amount = new Array(gases.length);
+  let totamount = 0;
+  let pressure  = planet.surfacePressure;
+  let n = 0;
+
+  for (let i = 0; i < gases.length; i++) {
+    let yp = gases[i].boil /
+      (373. * ((Math.log((pressure + 0.001)) / -5050.5) + 
+          (1.0 / 373.)));
+
+    if ((yp >= 0 && yp < planet.temperature.min) && (gases[i].weight >= planet.molecularWeight)) {
+      let pvrms	= planet.RMSVelocity;
+      let react	= 1.0;
+      let	abund	= gases[i].abunds; 				/* gases[i].abunde */
+      let pres2	= 1.0;
+      let fract	= 1.0;
+
+      if (gases[i].sym === "Ar") {
+        react = .15 * sun.age / 4e9;
+      }
+      else if (gases[i].sym === "He") {
+        abund = abund * (0.001 + (planet._gasMass / planet.mass));
+        pres2 = (0.75 + pressure);
+        react = Math.pow(1 / (1 + gases[i].reactivity), sun.age/2e9 * pres2);
+      }
+      else if ((gases[i].sym === "O" || gases[i].sym === "O2") && 
+        sun.age > 2e9 &&
+        planet.surfaceTemperature > 270 && planet.surfaceTemperature < 400
+      ) {
+        /*	pres2 = (0.65 + pressure/2);			Breathable - M: .55-1.4 	*/
+       pres2 = (0.89 + pressure/4);		/*	Breathable - M: .6 -1.8 	*/
+       react = Math.pow(1 / (1 + gases[i].reactivity), 
+             Math.pow(sun.age/2e9, 0.25) * pres2);
+      }
+      else if (gases[i].sym === "CO2" && 
+          sun.age > 2e9 &&
+          planet.surfaceTemperature > 270 && planet.surfaceTemperature < 400
+      ) {
+       pres2 = (0.75 + pressure);
+       react = Math.pow(1 / (1 + gases[i].reactivity), 
+             Math.pow(sun.age/2e9, 0.5) * pres2);
+       react *= 1.5;
+      }
+      else 
+      {
+       pres2 = (0.75 + pressure);
+       react = Math.pow(1 / (1 + gases[i].reactivity), 
+             sun.age/2e9 * pres2);
+      }
+
+      fract = (1 - (planet.molecularWeight / gases[i].weight));
+
+      amount[i] = abund * pvrms * react * fract;
+      planet.atmosphere.push({ name: gases[i].sym, num: gases[i].An, amount: amount[i] });
+      totamount += amount[i];
+    }
+  }
+
+  for (var i = 0; i < planet.atmosphere.length; i++) {
+    if (planet.atmosphere[i].amount > 0.0) {
+     planet.atmosphere[n].num = gases[i].An; // atomic-number
+     planet.atmosphere[n].surfacePressure = planet.surfaceTemperature * planet.atmosphere[i].amount / totamount;
+      n++;
+    }
+  }
+
+  return planet.atmosphere || [];
+}
+
 
 // void iterate_surface_temp_moon(stellar_system* system, planet** primary, planet** planet)
 // {

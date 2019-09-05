@@ -17,9 +17,8 @@
     "watch:src": "watch 'npm run build' src",
     "watch:css": "watch 'npm run build:assets' assets/scss",
     "watch": "concurrently 'npm run watch:src'",
-    "start:dev": "concurrently 'php -S localhost:3000' 'npm run watch'",
-    "start:node": "node -r @babel/register ./src",
-    "start:debug": "node --inspect-brk -r @babel/register ./src"
+    "start:dev": "concurrently 'http-server ./ -p 3000' 'npm run watch'",
+    "start:node": "node -r @babel/register ./src"
   },
   "devDependencies": {
     "@babel/cli": "^7.2.0",
@@ -34,6 +33,7 @@
     "concurrently": "^4.1.0",
     "eslint": "^4.19.1",
     "eslint-plugin-import": "^2.14.0",
+    "http-server": "^0.11.1",
     "uglify": "^0.1.5",
     "uglifyjs": "^2.4.11",
     "watch": "^1.0.2",
