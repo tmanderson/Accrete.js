@@ -317,7 +317,7 @@ export default class Planetismal {
     let isGasGiant = this.isGasGiant;
     // Invalidate memoized props
     this._surfaceGravity = this._surfacePressure = this._dayLength = this._surfaceGravity = this._radius = null;
-    
+
     this._gasMass += m;
     this.deltaMass = m;
     this.mass = this.mass + m;
