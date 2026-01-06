@@ -1,7 +1,7 @@
 <html>
   <head>
     <title>ACCRETE</title>
-
+    <meta charset="utf-8" />
     <style>
       html,
       body,
@@ -32,6 +32,61 @@
         top: 0;
         max-width: 180px;
         z-index: 2;
+        background: white;
+      }
+
+      #planetInfo {
+        position: fixed;
+        right: 10px;
+        top: 10px;
+        max-width: 400px;
+        max-height: 90vh;
+        overflow-y: auto;
+        background: rgba(255, 255, 255, 0.95);
+        border: 2px solid black;
+        padding: 15px;
+        z-index: 3;
+        font-family: monospace;
+        font-size: 12px;
+        display: none;
+      }
+
+      #planetInfo.visible {
+        display: block;
+      }
+
+      #planetInfo h3 {
+        margin: 0 0 10px 0;
+        font-size: 14px;
+        border-bottom: 1px solid #ccc;
+        padding-bottom: 5px;
+      }
+
+      #planetInfo .property {
+        display: flex;
+        justify-content: space-between;
+        margin: 3px 0;
+      }
+
+      #planetInfo .property-label {
+        font-weight: bold;
+        margin-right: 10px;
+      }
+
+      #planetInfo .property-value {
+        text-align: right;
+      }
+
+      #planetInfo .section {
+        margin-top: 15px;
+        padding-top: 10px;
+        border-top: 1px solid #eee;
+      }
+
+      #planetInfo .section-title {
+        font-weight: bold;
+        margin-bottom: 5px;
+        color: #333;
       }
 
       aside > div {
@@ -87,7 +142,7 @@
         <label>N</label>
         <input name="N" type="range" min="3" max="3" step="0.001" value="3" />
       </div>
-      <div style="display: none;">
+      <div style="display: none">
         <label>Q</label>
         <input
           name="Q"
@@ -109,7 +164,7 @@
           value="0.2"
         />
       </div>
-      <div style="display: none;">
+      <div style="display: none">
         <label>α</label>
         <input name="ALPHA" type="range" min="5" max="10" step="1" value="5" />
       </div>
@@ -118,6 +173,7 @@
       </div>
       <button>Generate Star System</button>
     </aside>
+    <div id="planetInfo"></div>
     <canvas></canvas>
     <script>
       var accrete = new Worker("dist/accrete.worker.js");
@@ -133,16 +189,18 @@
       ctx.font = "12px monospace";
       var btn = document.querySelector("button");
       var loadingInterval;
+      var currentPlanets = [];
+      var planetPositions = [];
 
       function createSystem() {
         accrete.postMessage(getConstValues());
         Array.from(document.querySelectorAll("aside input")).forEach(
-          el => (el.disabled = true)
+          (el) => (el.disabled = true),
         );
         btn.disabled = true;
         var i = 0;
 
-        loadingInterval = setInterval(function() {
+        loadingInterval = setInterval(function () {
           var l = ((e.target.innerText.match(/\.+$/) || [])[1] || "").length;
           i += 1;
           e.target.innerText =
@@ -161,18 +219,169 @@
               return config;
             return Object.assign(config, { [el.name]: parseFloat(el.value) });
           },
-          {}
+          {},
         );
       }
 
       document.body.addEventListener(
         "input",
-        function(e) {
+        function (e) {
           if (e.target.tagName !== "INPUT") return;
           createSystem();
         },
-        true
+        true,
       );
+
+      function showPlanetInfo(planet, planetNum) {
+        const infoDiv = document.getElementById("planetInfo");
+
+        function fmt(val, decimals = 2) {
+          if (typeof val === "boolean") return val ? "Yes" : "No";
+          if (typeof val === "number") return val.toFixed(decimals);
+          return val;
+        }
+
+        let planetType = planet.isGasGiant ? "Gas Giant" : "Rocky Planet";
+        if (!planet.isGasGiant && planet.surfacePressure > 0) {
+          planetType = "Terrestrial";
+        }
+
+        let habitabilityNotes = [];
+        if (
+          planet.surfaceTempCelsius >= -20 &&
+          planet.surfaceTempCelsius <= 50
+        ) {
+          habitabilityNotes.push("Temperature in habitable range");
+        }
+        if (planet.surfacePressure > 100 && planet.surfacePressure < 2000) {
+          habitabilityNotes.push("Atmospheric pressure moderate");
+        }
+        if (planet.hydrosphere > 0.3 && planet.hydrosphere < 0.9) {
+          habitabilityNotes.push("Significant surface water");
+        }
+
+        const html = `
+          <h3>Planet ${planetNum} - ${planetType}</h3>
+
+          <div class="section">
+            <div class="section-title">Orbital Properties</div>
+            <div class="property">
+              <span class="property-label">Semi-major Axis:</span>
+              <span class="property-value">${fmt(planet.axis, 3)} AU</span>
+            </div>
+            <div class="property">
+              <span class="property-label">Eccentricity:</span>
+              <span class="property-value">${fmt(planet.eccentricity, 3)}</span>
+            </div>
+            <div class="property">
+              <span class="property-label">Perihelion:</span>
+              <span class="property-value">${fmt(planet.perihelion, 3)} AU</span>
+            </div>
+            <div class="property">
+              <span class="property-label">Aphelion:</span>
+              <span class="property-value">${fmt(planet.aphelion, 3)} AU</span>
+            </div>
+            <div class="property">
+              <span class="property-label">Orbital Period:</span>
+              <span class="property-value">${fmt(planet.orbitalPeriod, 1)} days</span>
+            </div>
+            <div class="property">
+              <span class="property-label">Orbital Zone:</span>
+              <span class="property-value">${planet.orbitalZone === 1 ? "Inner" : planet.orbitalZone === 2 ? "Habitable" : "Outer"}</span>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Physical Properties</div>
+            <div class="property">
+              <span class="property-label">Mass:</span>
+              <span class="property-value">${fmt(planet.earthMass, 2)} M⊕</span>
+            </div>
+            <div class="property">
+              <span class="property-label">Radius:</span>
+              <span class="property-value">${fmt(planet.radius, 0)} km</span>
+            </div>
+            <div class="property">
+              <span class="property-label">Density:</span>
+              <span class="property-value">${fmt(planet.density, 2)} g/cm³</span>
+            </div>
+            <div class="property">
+              <span class="property-label">Surface Gravity:</span>
+              <span class="property-value">${fmt(planet.surfaceGravity, 2)} g</span>
+            </div>
+            <div class="property">
+              <span class="property-label">Escape Velocity:</span>
+              <span class="property-value">${fmt(planet.escapeVelocity / 100000, 1)} km/s</span>
+            </div>
+            <div class="property">
+              <span class="property-label">Axial Tilt:</span>
+              <span class="property-value">${fmt(planet.axialTilt, 1)}°</span>
+            </div>
+            <div class="property">
+              <span class="property-label">Day Length:</span>
+              <span class="property-value">${fmt(planet.dayLength, 1)} hours</span>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Atmospheric Properties</div>
+            <div class="property">
+              <span class="property-label">Surface Pressure:</span>
+              <span class="property-value">${fmt(planet.surfacePressure, 1)} mb</span>
+            </div>
+            <div class="property">
+              <span class="property-label">Surface Temp:</span>
+              <span class="property-value">${fmt(planet.surfaceTempCelsius, 1)}°C</span>
+            </div>
+            <div class="property">
+              <span class="property-label">Greenhouse Effect:</span>
+              <span class="property-value">${fmt(planet.greenhouseEffect)}</span>
+            </div>
+            <div class="property">
+              <span class="property-label">Min Mol. Weight:</span>
+              <span class="property-value">${fmt(planet.molecularWeightRetained, 1)}</span>
+            </div>
+            <div class="property">
+              <span class="property-label">Water Boiling Pt:</span>
+              <span class="property-value">${fmt(planet.boilingPoint - 273.15, 1)}°C</span>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Surface Properties</div>
+            <div class="property">
+              <span class="property-label">Albedo:</span>
+              <span class="property-value">${fmt(planet.albedo, 2)}</span>
+            </div>
+            <div class="property">
+              <span class="property-label">Hydrosphere:</span>
+              <span class="property-value">${fmt(planet.hydrosphere * 100, 1)}%</span>
+            </div>
+            <div class="property">
+              <span class="property-label">Cloud Cover:</span>
+              <span class="property-value">${fmt(planet.cloudCover * 100, 1)}%</span>
+            </div>
+            <div class="property">
+              <span class="property-label">Ice Cover:</span>
+              <span class="property-value">${fmt(planet.iceCover * 100, 1)}%</span>
+            </div>
+          </div>
+
+          ${
+            habitabilityNotes.length > 0
+              ? `
+          <div class="section">
+            <div class="section-title">Habitability Notes</div>
+            ${habitabilityNotes.map((note) => `<div style="margin: 3px 0;">• ${note}</div>`).join("")}
+          </div>
+          `
+              : ""
+          }
+        `;
+
+        infoDiv.innerHTML = html;
+        infoDiv.className = "visible";
+      }
 
       function drawGrid() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -189,7 +398,7 @@
               ctx.fillText(
                 label,
                 offset + x - ctx.measureText(label).width / 2,
-                canvas.height - 70
+                canvas.height - 70,
               );
             } else {
               tickLen = 20;
@@ -217,6 +426,9 @@
 
         const x = offset + hscale - r;
         const y = vscale - r;
+
+        // Store planet position for click detection
+        planetPositions[idx] = { x: x, y: y, r: r, planet: p, index: idx };
 
         const au_p =
           r * Math.log10(p.axis + (p.axis - p.perihelion) / p.axis - p.xp);
@@ -262,20 +474,43 @@
         ctx.fillText(
           axisLabel,
           x - ctx.measureText(axisLabel).width / 2,
-          y + (idx % 2 ? -1 : 1) * (r + (idx % 2 ? 10 : 80))
+          y + (idx % 2 ? -1 : 1) * (r + (idx % 2 ? 10 : 80)),
         );
         ctx.fillText(
           massLabel,
           x - ctx.measureText(massLabel).width / 2,
-          y + (idx % 2 ? -1 : 1) * (r + (idx % 2 ? 20 : 90))
+          y + (idx % 2 ? -1 : 1) * (r + (idx % 2 ? 20 : 90)),
         );
       }
 
+      // Add click handler for planets
+      canvas.addEventListener("click", function (e) {
+        const rect = canvas.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const clickY = e.clientY - rect.top;
+
+        // Check if click is on any planet
+        for (let i = 0; i < planetPositions.length; i++) {
+          const pos = planetPositions[i];
+          const dx = clickX - pos.x;
+          const dy = clickY - pos.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance <= 100) {
+            showPlanetInfo(pos.planet, i + 1);
+            return;
+          }
+        }
+
+        // Click outside any planet - hide info panel
+        document.getElementById("planetInfo").className = "";
+      });
+
       drawGrid();
 
-      accrete.onmessage = function(e) {
+      accrete.onmessage = function (e) {
         Array.from(document.querySelectorAll("aside input")).forEach(
-          el => (el.disabled = false)
+          (el) => (el.disabled = false),
         );
 
         btn.disabled = false;
@@ -283,22 +518,23 @@
         clearInterval(loadingInterval);
 
         const planets = e.data;
+        currentPlanets = planets.sort((p1, p2) => p1.axis - p2.axis);
+        planetPositions = []; // Reset positions
+
         var s = 50 / canvas.width;
         var inc = 100;
 
         drawGrid();
-        console.log(planets.sort((p1, p2) => p1.axis - p2.axis));
-        planets
-          .sort((p1, p2) => p1.axis - p2.axis)
-          .map((p, i) => {
-            var shade = Math.floor(
-              ((0.6 * planets.length - i) / planets.length) * 255
-            );
-            var rgba = [shade, shade, shade, 1];
-            ctx.fillStyle = `rgba(${rgba.join(",")})`;
+        console.log(currentPlanets);
+        currentPlanets.map((p, i) => {
+          var shade = Math.floor(
+            ((0.6 * planets.length - i) / planets.length) * 255,
+          );
+          var rgba = [shade, shade, shade, 1];
+          ctx.fillStyle = `rgba(${rgba.join(",")})`;
 
-            drawPlanet(p, i);
-          });
+          drawPlanet(p, i);
+        });
       };
     </script>
   </body>

@@ -1,5 +1,5 @@
-import { SOLAR_MASS_IN_EARTH_MASS, PROTOPLANET_MASS } from "./constants";
-import { kothariRadius, orbitalZone } from "./Astro";
+import * as C from "./constants";
+import * as Astro from "./Astro";
 
 export default class Planetismal {
   get rp() {
@@ -22,7 +22,7 @@ export default class Planetismal {
   }
 
   get earthMass() {
-    return this.mass * SOLAR_MASS_IN_EARTH_MASS;
+    return this.mass * C.SOLAR_MASS_IN_EARTH_MASS;
   }
 
   get criticalMass() {
@@ -44,8 +44,8 @@ export default class Planetismal {
     system,
     majorAxis,
     eccentricity,
-    mass = PROTOPLANET_MASS,
-    isGasGiant = false
+    mass = C.PROTOPLANET_MASS,
+    isGasGiant = false,
   ) {
     this.system = system;
     // semi-major axis
@@ -79,7 +79,7 @@ export default class Planetismal {
   };
 
   // Dole's discrete mass function of the mass
-  massDensity = p => {
+  massDensity = (p) => {
     const { N, W } = this.system.config;
     const t1 =
       (8 * Math.PI * Math.pow(this.a, N) * p * this.quadMass) / (1 - W * W);
@@ -87,7 +87,7 @@ export default class Planetismal {
     return t1 * t2;
   };
 
-  addMass = m => {
+  addMass = (m) => {
     this.deltaMass = m;
     this.mass = this.mass + m;
     this.quadMass = Math.pow(this.normalizedMass, 1 / 4);
@@ -95,8 +95,181 @@ export default class Planetismal {
     return this;
   };
 
+  /**
+   * Calculate StarGen properties for this planet
+   * Should be called after accretion is complete
+   */
+  calculateStarGenProperties = () => {
+    // Get stellar properties (default to solar values)
+    const stellarMass = this.system.mass || 1;
+    const stellarLuminosity = this.system.luminosity || 1;
+    const stellarAge = this.system.age || 5e9; // 5 billion years default
+
+    // Calculate radius using Kothari formula
+    this.radius = Astro.kothariRadius(this);
+
+    // Calculate orbital zone (1=inner, 2=habitable, 3=outer)
+    this.orbitalZone = Astro.orbitalZone(this.a, stellarLuminosity);
+
+    // Calculate density
+    this.density = Astro.volumeDensity(this.mass, this.radius);
+
+    // Calculate orbital period in Earth days
+    this.orbitalPeriod = Astro.period(this.a, this.mass, stellarMass);
+
+    // Calculate surface gravity (in Earth gravities)
+    const surfaceAcceleration = Astro.acceleration(this.mass, this.radius);
+    this.surfaceGravity = Astro.gravity(surfaceAcceleration);
+
+    // Calculate escape velocity (in cm/sec)
+    this.escapeVelocity = Astro.escape_vel(this.mass, this.radius);
+
+    // Calculate axial tilt (in degrees)
+    this.axialTilt = Astro.inclination(this.a);
+
+    // Calculate ecosphere radius for the star (in AU)
+    const rEcosphere = Math.sqrt(stellarLuminosity);
+
+    // Determine if planet is in greenhouse zone (prone to runaway greenhouse)
+    // This is used for volatile inventory calculation
+    const inGreenhouseZone = Astro.grnhouse(rEcosphere, this.a);
+
+    // Calculate exospheric temperature based on orbital distance
+    // Closer planets have higher exospheric temps, farther planets lower
+    // This is a simplified approximation
+    const solarFlux = stellarLuminosity / (this.a * this.a);
+    this.exosphericTemp = C.EARTH_EXOSPHERE_TEMP * Math.pow(solarFlux, 0.25);
+
+    // Calculate minimum molecular weight that can be retained
+    this.molecularWeightRetained = Astro.molecule_limit(
+      this.mass,
+      this.radius,
+      this.exosphericTemp,
+    );
+
+    // Calculate volatile gas inventory
+    const rmsVel = Astro.rms_vel(C.MOL_NITROGEN, this.exosphericTemp);
+    this.volatileGasInventory = Astro.vol_inventory(
+      this.mass,
+      this.escapeVelocity,
+      rmsVel,
+      stellarMass,
+      this.orbitalZone,
+      inGreenhouseZone,
+      this.isGasGiant,
+    );
+
+    // Calculate surface pressure (in millibars)
+    this.surfacePressure = Astro.pressure(
+      this.volatileGasInventory,
+      this.radius,
+      this.surfaceGravity,
+    );
+
+    // Calculate boiling point of water at this pressure
+    this.boilingPoint = Astro.boiling_point(this.surfacePressure);
+
+    // Iterative calculation of surface temperature and surface properties
+    // Start with initial guesses
+    this.albedo = C.EARTH_ALBEDO;
+    this.hydrosphere = 0;
+    this.cloudCover = 0;
+    this.iceCover = 0;
+
+    const initialTemp = Astro.est_temp(rEcosphere, this.a, this.albedo);
+
+    // Iterate to find equilibrium temperature and surface conditions
+    for (let iteration = 0; iteration < 25; iteration++) {
+      const lastWater = this.hydrosphere;
+      const lastClouds = this.cloudCover;
+      const lastIce = this.iceCover;
+      const lastTemp = this.surfaceTemp || initialTemp;
+      const lastAlbedo = this.albedo;
+
+      // Calculate effective temperature with current albedo
+      const effectiveTemp = Astro.eff_temp(rEcosphere, this.a, this.albedo);
+
+      // Calculate greenhouse effect
+      const opticalDepth = Astro.opacity(
+        this.molecularWeightRetained,
+        this.surfacePressure,
+      );
+      const greenhouseRise = Astro.green_rise(
+        opticalDepth,
+        effectiveTemp,
+        this.surfacePressure,
+      );
+
+      // Update surface temperature
+      this.surfaceTemp = effectiveTemp + greenhouseRise;
+
+      // Calculate surface properties
+      this.hydrosphere = Astro.hydro_fraction(
+        this.volatileGasInventory,
+        this.radius,
+      );
+
+      this.cloudCover = Astro.cloud_fraction(
+        this.surfaceTemp,
+        this.molecularWeightRetained,
+        this.radius,
+        this.hydrosphere,
+      );
+
+      this.iceCover = Astro.ice_fraction(this.hydrosphere, this.surfaceTemp);
+
+      // Recalculate albedo based on surface composition
+      this.albedo = Astro.planet_albedo(
+        this.hydrosphere,
+        this.cloudCover,
+        this.iceCover,
+        this.surfacePressure,
+      );
+
+      // Average with previous values to smooth convergence
+      if (iteration > 0) {
+        this.hydrosphere = (this.hydrosphere + lastWater * 2) / 3;
+        this.cloudCover = (this.cloudCover + lastClouds * 2) / 3;
+        this.iceCover = (this.iceCover + lastIce * 2) / 3;
+        this.albedo = (this.albedo + lastAlbedo * 2) / 3;
+        this.surfaceTemp = (this.surfaceTemp + lastTemp * 2) / 3;
+      }
+
+      // Check for convergence
+      if (Math.abs(this.surfaceTemp - lastTemp) < 0.25) {
+        break;
+      }
+    }
+
+    // Determine actual greenhouse effect based on final surface conditions
+    // A planet has a greenhouse effect if it's too hot for water to condense
+    this.greenhouseEffect =
+      inGreenhouseZone && this.surfaceTemp > this.boilingPoint;
+
+    // Calculate day length (in hours)
+    // This requires more properties, so we'll use a simplified approach
+    // For now, assume tidally locked if close to star, otherwise use a default
+    if (this.a < 0.1) {
+      this.dayLength = this.orbitalPeriod * 24; // Tidally locked
+    } else {
+      // Simplified day length calculation
+      this.dayLength = 24; // Default to Earth-like
+    }
+
+    // Mark as calculated
+    this.starGenCalculated = true;
+
+    return this;
+  };
+
   toJSON = () => {
+    // Calculate StarGen properties if not already done
+    if (!this.starGenCalculated) {
+      this.calculateStarGenProperties();
+    }
+
     return {
+      // Original Accrete properties
       xa: this.xa,
       xp: this.xp,
       aphelion: this.ra,
@@ -105,7 +278,33 @@ export default class Planetismal {
       perihelion: this.rp,
       earthMass: this.earthMass,
       isGasGiant: this.isGasGiant,
-      radius: kothariRadius(this)
+
+      // StarGen properties
+      radius: this.radius,
+      density: this.density,
+      orbitalZone: this.orbitalZone,
+      orbitalPeriod: this.orbitalPeriod,
+      surfaceGravity: this.surfaceGravity,
+      escapeVelocity: this.escapeVelocity,
+      axialTilt: this.axialTilt,
+
+      // Atmospheric properties
+      surfacePressure: this.surfacePressure,
+      surfaceTemp: this.surfaceTemp,
+      surfaceTempCelsius: this.surfaceTemp - C.FREEZING_POINT_OF_WATER,
+      greenhouseEffect: this.greenhouseEffect,
+      volatileGasInventory: this.volatileGasInventory,
+      molecularWeightRetained: this.molecularWeightRetained,
+      boilingPoint: this.boilingPoint,
+
+      // Surface properties
+      albedo: this.albedo,
+      hydrosphere: this.hydrosphere,
+      cloudCover: this.cloudCover,
+      iceCover: this.iceCover,
+
+      // Rotation
+      dayLength: this.dayLength,
     };
   };
 }

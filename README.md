@@ -38,7 +38,7 @@ const planets = system.planets;
 
 - [x] Organize the codebase into a more modern, and JavaScript friendly structure.
 - [x] A full build process for Browser/Node scripts and modules.
-- [ ] Implement a good chunk of [StarGen's](http://www.eldacur.com/~brons/NerdCorner/StarGen/StarGen.html) features.
+- [x] Implement a good chunk of [StarGen's](http://www.eldacur.com/~brons/NerdCorner/StarGen/StarGen.html) features.
 - [ ] Live WebGL view and screenshot options for created systems.
 - [ ] Other cool things to take advantage of this amazing program.
 
