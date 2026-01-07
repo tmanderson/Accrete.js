@@ -153,6 +153,9 @@ export const AN_CO2 = 902;
 export const AN_O3 = 903;
 export const AN_CH4 = 904;
 export const AN_CH3CH2OH = 905;
+export const AN_N2 = 906;
+export const AN_O2 = 907;
+export const AN_H2 = 908;
 
 /*  The following defines are used in the kothari_radius function in  */
 /*  file enviro.c.                            */

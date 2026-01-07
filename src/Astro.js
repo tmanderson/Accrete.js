@@ -542,36 +542,40 @@ export const opacity = (molecular_weight, surf_pressure) => {
  *	Taken from Dole p. 34. He cites Jeans (1916) & Jones (1923)
  */
 export const gas_life = (molecular_weight, planet) => {
-  const v = rms_vel(molecular_weight, planet.exospheric_temp);
-  const g = planet.surf_grav * EARTH_ACCELERATION;
-  const r = planet.radius * CM_PER_KM;
-  const t = (pow3(v) / (2.0 * pow2(g) * r)) * exp((3.0 * g * r) / pow2(v));
-  const years = t / (SECONDS_PER_HOUR * 24.0 * DAYS_IN_A_YEAR);
+  const v = rms_vel(
+    molecular_weight,
+    planet.exospheric_temp || planet.exosphericTemp,
+  );
+  const g = (planet.surf_grav || planet.surfaceGravity) * C.EARTH_ACCELERATION;
+  const r = planet.radius * C.CM_PER_KM;
+  const t = (pow3(v) / (2.0 * pow2(g) * r)) * Math.exp((3.0 * g * r) / pow2(v));
+  const years = t / (C.SECONDS_PER_HOUR * 24.0 * C.DAYS_IN_A_YEAR);
 
   // THE CODE BELOW WAS COMMENTED OUT IN STAR GEN (TODO: investigate)
   //	ve = planet.esc_velocity;
   //	k = 2;
-  //	t2 = ((k * pow3(v) * r) / pow4(ve)) * exp((3.0 * pow2(ve)) / (2.0 * pow2(v)));
-  //	years2 = t2 / (SECONDS_PER_HOUR * 24.0 * DAYS_IN_A_YEAR);
+  //	t2 = ((k * pow3(v) * r) / pow4(ve)) * Math.exp((3.0 * pow2(ve)) / (2.0 * pow2(v)));
+  //	years2 = t2 / (C.SECONDS_PER_HOUR * 24.0 * C.DAYS_IN_A_YEAR);
 
   //	if (DEBUG)
   //		console.error( "gas_life: %LGs, V ratio: %Lf\n",
   //				years, ve / v);
 
-  return years > 2.0e10 ? INCREDIBLY_LARGE_NUMBER : years;
+  return years > 2.0e10 ? C.INCREDIBLY_LARGE_NUMBER : years;
 };
 
 export const min_molec_weight = (planet) => {
   let mass = planet.mass;
   let radius = planet.radius;
-  let temp = planet.exospheric_temp;
+  let temp = planet.exospheric_temp || planet.exosphericTemp;
   let target = 5.0e9;
   let guess_1 = molecule_limit(mass, radius, temp);
   let guess_2 = guess_1;
+  let guess_3;
   let life = gas_life(guess_1, planet);
   let loops = 0;
 
-  if (NULL != planet.sun) target = planet.sun.age;
+  if (planet.sun != null) target = planet.sun.age;
   if (life > target) {
     while (life > target && loops++ < 25) {
       guess_1 = guess_1 / 2.0;
@@ -809,9 +813,9 @@ export const iterate_surface_temp = (planet) => {
 /*	 air in the nasal passage and throat This formula is on Dole's p. 14	*/
 /*--------------------------------------------------------------------------*/
 export const inspired_partial_pressure = (surf_pressure, gas_pressure) => {
-  const pH2O = H20_ASSUMED_PRESSURE;
+  const pH2O = C.H20_ASSUMED_PRESSURE;
   const fraction = gas_pressure / surf_pressure;
-  return surf_pressure - pH2O * fraction;
+  return (surf_pressure - pH2O) * fraction;
 };
 
 /*--------------------------------------------------------------------------*/
@@ -825,42 +829,61 @@ export const breathability = (planet) => {
   let oxygen_ok = false;
   let index;
 
-  if (planet.gases == 0) return NONE;
-  for (index = 0; index < planet.gases; index++) {
-    let n;
-    let gas_no = 0;
-    let ipp = inspired_partial_pressure(
-      planet.surf_pressure,
-      planet.atmosphere[index].surf_pressure,
-    );
+  const surfacePressure = planet.surfacePressure || planet.surf_pressure || 0;
+  const atmosphere = planet.atmosphere || [];
+  const gasCount = planet.gases || 0;
 
-    for (n = 0; n < max_gas; n++) {
-      if (gases[n].num == planet.atmosphere[index].num) gas_no = n;
+  // No atmosphere
+  if (gasCount === 0 || atmosphere.length === 0) return 0; // NONE
+
+  // Check each gas in the atmosphere
+  for (index = 0; index < atmosphere.length; index++) {
+    const atm_gas = atmosphere[index];
+    const gas_num = atm_gas.num;
+    const partial_pressure = atm_gas.surf_pressure;
+
+    // Calculate inspired partial pressure
+    const ipp = inspired_partial_pressure(surfacePressure, partial_pressure);
+
+    // Find this gas in our gas table
+    let gas_data = null;
+    for (let n = 0; n < GASES.length; n++) {
+      if (GASES[n].num === gas_num) {
+        gas_data = GASES[n];
+        break;
+      }
     }
 
-    if (ipp > gases[gas_no].max_ipp) return POISONOUS;
+    if (!gas_data) continue; // Unknown gas, skip
 
-    if (planet.atmosphere[index].num == AN_O)
-      oxygen_ok = ipp >= MIN_O2_IPP && ipp <= MAX_O2_IPP;
+    // Check if this gas is toxic at this concentration
+    if (ipp > gas_data.max_ipp) return 3; // POISONOUS
+
+    // Check for oxygen (molecular O2) in breathable range
+    if (gas_num === C.AN_O2) {
+      oxygen_ok = ipp >= C.MIN_O2_IPP && ipp <= C.MAX_O2_IPP;
+    }
   }
 
-  return oxygen_ok ? BREATHABLE : UNBREATHABLE;
+  return oxygen_ok ? 1 : 2; // BREATHABLE : UNBREATHABLE
 };
 
 /* function for 'soft limiting' temperatures */
-export const lim = (x) => x / Math.sqrt(sqrt(1 + x * x * x * x));
+export const lim = (x) => x / Math.sqrt(Math.sqrt(1 + x * x * x * x));
 
 export const soft = (v, max, min) => {
   const dv = v - min;
   const dm = max - min;
-  return (lim((2 * dv) / dm - 1 + 1) / 2) * dm + min;
+  return ((lim((2 * dv) / dm - 1) + 1) / 2) * dm + min;
 };
 
 export const set_temp_range = (planet) => {
   const pressmod = 1 / Math.sqrt(1 + (20 * planet.surf_pressure) / 1000.0);
   const ppmod = 1 / Math.sqrt(10 + (5 * planet.surf_pressure) / 1000.0);
-  const tiltmod = fabs(
-    cos((planet.axial_tilt * PI) / 180) * Math.pow(1 + planet.e, 2),
+  const eccentricity = planet.eccentricity || planet.e || 0;
+  const tiltmod = Math.abs(
+    Math.cos((planet.axial_tilt * Math.PI) / 180) *
+      Math.pow(1 + eccentricity, 2),
   );
   const daymod = 1 / (200 / planet.day + 1);
   const max = planet.surf_temp + Math.sqrt(planet.surf_temp) * 10;
@@ -877,4 +900,405 @@ export const set_temp_range = (planet) => {
   planet.low_temp = soft(lo, max, min);
   planet.max_temp = soft(sh, max, min);
   planet.min_temp = soft(wl, max, min);
+};
+
+/**
+ * Gas Table (ChemTable) for Atmospheric Composition
+ * Based on StarGen implementation and Dole's "Habitable Planets for Man"
+ *
+ * This table defines properties for atmospheric gases including:
+ * - Atomic/molecular number
+ * - Symbol
+ * - Name
+ * - Molecular weight
+ * - Melting point (Kelvin)
+ * - Boiling point (Kelvin)
+ * - Density (g/cc)
+ * - Abundance (relative to Earth = 1.0)
+ * - Reactivity factor
+ * - Maximum inspired partial pressure (millibars) - for breathability
+ */
+
+// Breathability constants
+export const NONE = 0;
+export const BREATHABLE = 1;
+export const UNBREATHABLE = 2;
+export const POISONOUS = 3;
+
+/**
+ * Gas definition structure
+ * @typedef {Object} Gas
+ * @property {number} num - Atomic number (or special number for molecules)
+ * @property {string} symbol - Chemical symbol
+ * @property {string} html_symbol - HTML formatted symbol
+ * @property {string} name - Common name
+ * @property {number} weight - Molecular weight
+ * @property {number} melt - Melting point in Kelvin
+ * @property {number} boil - Boiling point in Kelvin
+ * @property {number} density - Density in g/cc
+ * @property {number} abunde - Abundance relative to Earth
+ * @property {number} abunds - Abundance relative to Sun
+ * @property {number} reactivity - Chemical reactivity (0-10 scale)
+ * @property {number} max_ipp - Maximum inspired partial pressure in millibars
+ */
+
+export const GASES = [
+  // Molecular gases
+  {
+    num: C.AN_H2,
+    symbol: "H2",
+    html_symbol: "H<sub><small>2</small></sub>",
+    name: "Hydrogen",
+    weight: C.MOL_HYDROGEN,
+    melt: 14.06,
+    boil: 20.4,
+    density: 8.99e-5,
+    abunde: 0.00125893,
+    abunds: 27925.4,
+    reactivity: 1,
+    max_ipp: 0.0, // Not breathable
+  },
+  {
+    num: C.AN_HE,
+    symbol: "He",
+    html_symbol: "He",
+    name: "Helium",
+    weight: C.HELIUM,
+    melt: 3.46,
+    boil: 4.2,
+    density: 0.0001787,
+    abunde: 7.94328e-9,
+    abunds: 2722.7,
+    reactivity: 0,
+    max_ipp: C.MAX_HE_IPP,
+  },
+  {
+    num: C.AN_N2,
+    symbol: "N2",
+    html_symbol: "N<sub><small>2</small></sub>",
+    name: "Nitrogen",
+    weight: C.MOL_NITROGEN,
+    melt: 63.34,
+    boil: 77.4,
+    density: 0.0012506,
+    abunde: 1.99526e-5,
+    abunds: 3.13329,
+    reactivity: 0,
+    max_ipp: C.MAX_N2_IPP,
+  },
+  {
+    num: C.AN_O2,
+    symbol: "O2",
+    html_symbol: "O<sub><small>2</small></sub>",
+    name: "Oxygen",
+    weight: C.MOL_OXYGEN,
+    melt: 54.8,
+    boil: 90.2,
+    density: 0.001429,
+    abunde: 0.501187,
+    abunds: 23.8232,
+    reactivity: 10,
+    max_ipp: C.MAX_O2_IPP,
+  },
+  {
+    num: C.AN_NE,
+    symbol: "Ne",
+    html_symbol: "Ne",
+    name: "Neon",
+    weight: C.NEON,
+    melt: 24.53,
+    boil: 27.07,
+    density: 0.0009,
+    abunde: 5.01187e-9,
+    abunds: 3.4435e-5,
+    reactivity: 0,
+    max_ipp: C.MAX_NE_IPP,
+  },
+  {
+    num: C.AN_AR,
+    symbol: "Ar",
+    html_symbol: "Ar",
+    name: "Argon",
+    weight: C.ARGON,
+    melt: 83.96,
+    boil: 87.3,
+    density: 0.0017824,
+    abunde: 3.16228e-6,
+    abunds: 0.100925,
+    reactivity: 0,
+    max_ipp: C.MAX_AR_IPP,
+  },
+  {
+    num: C.AN_KR,
+    symbol: "Kr",
+    html_symbol: "Kr",
+    name: "Krypton",
+    weight: C.KRYPTON,
+    melt: 116.6,
+    boil: 119.7,
+    density: 0.003708,
+    abunde: 1e-10,
+    abunds: 4.4978e-9,
+    reactivity: 0,
+    max_ipp: C.MAX_KR_IPP,
+  },
+  {
+    num: C.AN_XE,
+    symbol: "Xe",
+    html_symbol: "Xe",
+    name: "Xenon",
+    weight: C.XENON,
+    melt: 161.3,
+    boil: 165.0,
+    density: 0.00588,
+    abunde: 3.16228e-11,
+    abunds: 4.6998e-10,
+    reactivity: 0,
+    max_ipp: C.MAX_XE_IPP,
+  },
+
+  // Molecular compounds
+  {
+    num: C.AN_NH3,
+    symbol: "NH3",
+    html_symbol: "NH<sub><small>3</small></sub>",
+    name: "Ammonia",
+    weight: C.AMMONIA,
+    melt: 195.46,
+    boil: 239.66,
+    density: 0.001,
+    abunde: 0.002,
+    abunds: 0.0001,
+    reactivity: 1,
+    max_ipp: C.MAX_NH3_IPP,
+  },
+  {
+    num: C.AN_H2O,
+    symbol: "H2O",
+    html_symbol: "H<sub><small>2</small></sub>O",
+    name: "Water",
+    weight: C.WATER_VAPOR,
+    melt: C.FREEZING_POINT_OF_WATER,
+    boil: 373.15,
+    density: 1.0,
+    abunde: 0.001,
+    abunds: 0.001,
+    reactivity: 0,
+    max_ipp: Number.POSITIVE_INFINITY,
+  },
+  {
+    num: C.AN_CO2,
+    symbol: "CO2",
+    html_symbol: "CO<sub><small>2</small></sub>",
+    name: "CarbonDioxide",
+    weight: C.CARBON_DIOXIDE,
+    melt: 194.66,
+    boil: 194.66,
+    density: 0.001,
+    abunde: 0.01,
+    abunds: 0.0001,
+    reactivity: 0,
+    max_ipp: C.MAX_CO2_IPP,
+  },
+  {
+    num: C.AN_O3,
+    symbol: "O3",
+    html_symbol: "O<sub><small>3</small></sub>",
+    name: "Ozone",
+    weight: C.OZONE,
+    melt: 80.16,
+    boil: 161.16,
+    density: 0.001,
+    abunde: 0.001,
+    abunds: 0.000001,
+    reactivity: 2,
+    max_ipp: C.MAX_O3_IPP,
+  },
+  {
+    num: C.AN_CH4,
+    symbol: "CH4",
+    html_symbol: "CH<sub><small>4</small></sub>",
+    name: "Methane",
+    weight: C.METHANE,
+    melt: 90.16,
+    boil: 111.66,
+    density: 0.01,
+    abunde: 0.005,
+    abunds: 0.001,
+    reactivity: 1,
+    max_ipp: C.MAX_CH4_IPP,
+  },
+];
+
+/**
+ * Get a gas by its atomic/molecular number
+ * @param {number} num - The atomic/molecular number
+ * @returns {Gas|null} The gas object or null if not found
+ */
+export const getGas = (num) => {
+  return GASES.find((g) => g.num === num) || null;
+};
+
+/**
+ * Get a gas by its symbol
+ * @param {string} symbol - The chemical symbol
+ * @returns {Gas|null} The gas object or null if not found
+ */
+export const getGasBySymbol = (symbol) => {
+  return GASES.find((g) => g.symbol === symbol) || null;
+};
+
+export const generateAtmosphere = (planet) => {
+  const atmosphere = [];
+  let gases = 0;
+
+  // Gas giants have a different composition (primarily H2 and He)
+  if (planet.isGasGiant) {
+    // Hydrogen (molecular)
+    const h2Pressure = planet.surfacePressure * 0.85;
+    atmosphere.push({
+      num: C.AN_H2,
+      surf_pressure: h2Pressure,
+      fraction: 0.85,
+    });
+
+    // Helium
+    const hePressure = planet.surfacePressure * 0.15;
+    atmosphere.push({
+      num: C.AN_HE,
+      surf_pressure: hePressure,
+      fraction: 0.15,
+    });
+
+    gases = 2;
+  } else {
+    // For terrestrial planets, determine which gases can be retained
+    // based on molecular weight retention threshold
+
+    // Potential atmospheric gases to check
+    // TODO: Use gas table
+    const potentialGases = [
+      { num: C.AN_H2, weight: C.MOL_HYDROGEN, abundance: 0.001 },
+      { num: C.AN_HE, weight: C.HELIUM, abundance: 0.0001 },
+      { num: C.AN_N2, weight: C.MOL_NITROGEN, abundance: 0.79 },
+      { num: C.AN_O2, weight: C.MOL_OXYGEN, abundance: 0.2 },
+      { num: C.AN_NE, weight: C.NEON, abundance: 0.00001 },
+      { num: C.AN_AR, weight: C.ARGON, abundance: 0.01 },
+      { num: C.AN_KR, weight: C.KRYPTON, abundance: 0.00001 },
+      { num: C.AN_XE, weight: C.XENON, abundance: 0.000001 },
+      { num: C.AN_NH3, weight: C.AMMONIA, abundance: 0.001 },
+      { num: C.AN_H2O, weight: C.WATER_VAPOR, abundance: 0.001 },
+      { num: C.AN_CO2, weight: C.CARBON_DIOXIDE, abundance: 0.01 },
+      { num: C.AN_O3, weight: C.OZONE, abundance: 0.000001 },
+      { num: C.AN_CH4, weight: C.METHANE, abundance: 0.0001 },
+    ];
+
+    // Filter gases that can be retained
+    const retainedGases = potentialGases.filter(
+      (g) => g.weight >= planet.molecularWeightRetained,
+    );
+
+    if (retainedGases.length === 0) {
+      // No atmosphere
+      gases = 0;
+      return { atmosphere, gases };
+    }
+
+    // Calculate relative abundances based on conditions
+    let totalAbundance = 0;
+
+    // Modify abundances based on planet conditions
+    const tempCelsius = planet.surfaceTemp - C.FREEZING_POINT_OF_WATER;
+
+    retainedGases.forEach((gas) => {
+      let abundance = gas.abundance;
+
+      // Adjust based on orbital zone and temperature
+      if (gas.num === C.AN_H2O) {
+        // Water vapor depends on temperature and hydrosphere
+        if (tempCelsius < 0) {
+          abundance *= 0.01; // Very little water vapor when frozen
+        } else if (tempCelsius > 100) {
+          abundance *= 10; // More water vapor when hot
+        }
+        abundance *= planet.hydrosphere;
+      }
+
+      if (gas.num === C.AN_CO2) {
+        // CO2 is more common on Venus-like (hot) or Mars-like (cold, thin) planets
+        if (planet.greenhouseEffect) {
+          abundance *= 100; // Runaway greenhouse
+        } else if (planet.orbitalZone === 3) {
+          abundance *= 10; // Outer zone
+        } else if (
+          tempCelsius > -20 &&
+          tempCelsius < 50 &&
+          planet.hydrosphere > 0.2
+        ) {
+          // Earth-like worlds with water absorb CO2 into oceans
+          abundance *= 0.004; // Earth has ~0.04% CO2 (400 ppm)
+        }
+      }
+
+      if (gas.num === C.AN_CH4) {
+        // Methane more common in outer zone and on cold planets
+        if (planet.orbitalZone === 3 || tempCelsius < -50) {
+          abundance *= 10;
+        }
+      }
+
+      if (gas.num === C.AN_NH3) {
+        // Ammonia more common on cold, outer planets
+        if (planet.orbitalZone === 3 && tempCelsius < -50) {
+          abundance *= 5;
+        } else {
+          abundance *= 0.1;
+        }
+      }
+
+      if (gas.num === C.AN_O2) {
+        // Oxygen requires biological processes (simplified)
+        // Present on potentially habitable worlds with water and moderate temps
+        // Relax the zone requirement - focus on actual conditions
+        if (
+          tempCelsius > -20 &&
+          tempCelsius < 50 &&
+          planet.hydrosphere > 0.2 &&
+          planet.surfacePressure > 100
+        ) {
+          abundance *= 1.0; // Keep Earth-like
+        } else {
+          abundance *= 0.01; // Very little free oxygen
+        }
+      }
+
+      if (gas.num === C.AN_N2) {
+        // Nitrogen is common and stable
+        abundance *= 1.0;
+      }
+
+      gas.adjustedAbundance = abundance;
+      totalAbundance += abundance;
+    });
+
+    // Normalize to get fractions that sum to 1
+    retainedGases.forEach((gas) => {
+      const fraction = gas.adjustedAbundance / totalAbundance;
+      const gasPressure = planet.surfacePressure * fraction;
+
+      // Only include gases with meaningful presence (> 0.1% of atmosphere)
+      if (fraction > 0.001) {
+        atmosphere.push({
+          num: gas.num,
+          surf_pressure: gasPressure,
+          fraction: fraction,
+        });
+      }
+    });
+
+    atmosphere.sort((a, b) => b.surf_pressure - a.surf_pressure);
+    gases = atmosphere.length;
+  }
+
+  return { atmosphere, gases };
 };

@@ -290,10 +290,85 @@ export default class Planetismal {
       this.dayLength = Math.min(this.dayLength, this.orbitalPeriod * 24 * 0.5);
     }
 
+    // Calculate temperature ranges based on axial tilt, day length, and atmosphere
+    this.calculateTemperatureRanges();
+
+    // Calculate atmospheric gas composition
+    this.calculateAtmosphericGases();
+
+    // Calculate breathability based on atmospheric composition
+    this.calculateBreathability();
+
     // Mark as calculated
     this.starGenCalculated = true;
 
     return this;
+  };
+
+  calculateTemperatureRanges = () => {
+    // Use Astro.js set_temp_range function
+    // Create planet object in the format expected by set_temp_range
+    const planetData = {
+      surf_temp: this.surfaceTemp,
+      high_temp: 0,
+      low_temp: 0,
+      max_temp: 0,
+      min_temp: 0,
+      surf_pressure: this.surfacePressure,
+      day: this.dayLength,
+      axial_tilt: this.axialTilt,
+      eccentricity: this.e,
+    };
+
+    // Call the Astro.js function
+    Astro.set_temp_range(planetData);
+
+    // Map results back to this object
+    this.highTemp = planetData.high_temp;
+    this.lowTemp = planetData.low_temp;
+    this.maxTemp = planetData.max_temp;
+    this.minTemp = planetData.min_temp;
+  };
+
+  /**
+   * Calculate which gases are present in the atmosphere
+   * Based on molecular weight retention and planet conditions
+   */
+  calculateAtmosphericGases = () => {
+    const { gases, atmosphere } = Astro.generateAtmosphere(this);
+    this.gases = gases;
+    this.atmosphere = atmosphere;
+  };
+
+  calculateBreathability = () => {
+    // Ensure atmospheric composition has been calculated
+    if (!this.atmosphere) {
+      this.calculateAtmosphericGases();
+    }
+
+    // Use the breathability function from Astro.js
+    const breathabilityCode = Astro.breathability(this);
+
+    // Convert code to descriptive string
+    // 0 = NONE, 1 = BREATHABLE, 2 = UNBREATHABLE, 3 = POISONOUS
+    switch (breathabilityCode) {
+      case 0:
+        this.breathability = "None";
+        break;
+      case 1:
+        this.breathability = "Breathable";
+        break;
+      case 2:
+        this.breathability = "Unbreathable";
+        break;
+      case 3:
+        this.breathability = "Poisonous";
+        break;
+      default:
+        this.breathability = "Unknown";
+    }
+
+    this.breathabilityCode = breathabilityCode;
   };
 
   toJSON = () => {
@@ -301,6 +376,22 @@ export default class Planetismal {
     if (!this.starGenCalculated) {
       this.calculateStarGenProperties();
     }
+
+    // Format atmospheric gases for output
+    const atmosphereData = this.atmosphere
+      ? this.atmosphere.map((gas) => {
+          const gasInfo = Astro.getGas(gas.num);
+          return {
+            num: gas.num,
+            symbol: gasInfo ? gasInfo.symbol : "?",
+            name: gasInfo ? gasInfo.name : "Unknown",
+            fraction: gas.fraction,
+            percentByVolume: (gas.fraction * 100).toFixed(1),
+            partialPressure: gas.surf_pressure,
+            partialPressureMb: gas.surf_pressure.toFixed(1),
+          };
+        })
+      : [];
 
     return {
       // Original Accrete properties
@@ -331,6 +422,10 @@ export default class Planetismal {
       molecularWeightRetained: this.molecularWeightRetained,
       boilingPoint: this.boilingPoint,
 
+      // Atmospheric gas composition
+      gases: this.gases,
+      atmosphere: atmosphereData,
+
       // Surface properties
       albedo: this.albedo,
       hydrosphere: this.hydrosphere,
@@ -339,6 +434,20 @@ export default class Planetismal {
 
       // Rotation
       dayLength: this.dayLength,
+
+      // Temperature ranges
+      highTemp: this.highTemp,
+      lowTemp: this.lowTemp,
+      maxTemp: this.maxTemp,
+      minTemp: this.minTemp,
+      highTempCelsius: this.highTemp - C.FREEZING_POINT_OF_WATER,
+      lowTempCelsius: this.lowTemp - C.FREEZING_POINT_OF_WATER,
+      maxTempCelsius: this.maxTemp - C.FREEZING_POINT_OF_WATER,
+      minTempCelsius: this.minTemp - C.FREEZING_POINT_OF_WATER,
+
+      // Breathability
+      breathability: this.breathability,
+      breathabilityCode: this.breathabilityCode,
     };
   };
 }
