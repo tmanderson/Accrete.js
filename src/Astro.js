@@ -136,7 +136,9 @@ export const period = (separation, smallMass, largeMass) => {
 export const dayLength = (planet) => {
   const planetMassInGrams = planet.mass * C.SOLAR_MASS_IN_GRAMS;
   const equatorialRadiusInCm = planet.radius * C.CM_PER_KM;
-  const YearInHours = planet.orbPeriod || C.period(planet.axis, planet.mass, 1);
+  const orbitalPeriodInDays =
+    planet.orbPeriod || period(planet.axis, planet.mass, 1);
+  const YearInHours = orbitalPeriodInDays * 24.0;
   const giant = planet.giant || false;
   const k2 = giant ? 0.24 : 0.33;
   let stopped = false;
@@ -150,14 +152,14 @@ export const dayLength = (planet) => {
   planet.resonantPeriod = false;
 
   baseAngularVelocity =
-    Math.sqrt(2 * J * planetMassInGrams) /
+    Math.sqrt(2 * C.J * planetMassInGrams) /
     (k2 * Math.pow(equatorialRadiusInCm, 2));
 
   changeInAngularVelocity =
-    C.changeInEarthAngVel * (planet.density / earthDensity);
+    C.CHANGE_IN_EARTH_ANG_VEL * (planet.density / C.EARTH_DENSITY);
   changeInAngularVelocity *=
-    (equatorialRadiusInCm / earthRadius) *
-    (earthMassInGrams / planetMassInGrams);
+    (equatorialRadiusInCm / C.EARTH_RADIUS) *
+    (C.EARTH_MASS_IN_GRAMS / planetMassInGrams);
   changeInAngularVelocity *=
     Math.pow(planet.sun.mass, 2) * (1 / Math.pow(planet.axis, 6));
 
@@ -165,9 +167,9 @@ export const dayLength = (planet) => {
 
   if (angVelocity <= 0.0) {
     stopped = true;
-    dayInHours = C.veryLargeNumber;
+    dayInHours = C.INCREDIBLY_LARGE_NUMBER;
   } else {
-    dayInHours = C.radiansPerRotation / (secondsPerHour * angVelocity);
+    dayInHours = (2 * Math.PI) / (C.SECONDS_PER_HOUR * angVelocity);
   }
 
   if (dayInHours >= YearInHours || stopped) {

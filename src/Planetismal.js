@@ -247,13 +247,47 @@ export default class Planetismal {
       inGreenhouseZone && this.surfaceTemp > this.boilingPoint;
 
     // Calculate day length (in hours)
-    // This requires more properties, so we'll use a simplified approach
-    // For now, assume tidally locked if close to star, otherwise use a default
-    if (this.a < 0.1) {
-      this.dayLength = this.orbitalPeriod * 24; // Tidally locked
+    // Using a more realistic approach than the original StarGen formula
+    // which produces unrealistic values for old stars
+
+    // Check for tidal locking (very close planets)
+    // Tidal locking occurs when orbital period equals rotation period
+    const tidalLockingRadius =
+      0.027 * Math.pow(stellarMass, 1 / 3) * Math.pow(stellarAge / 1e9, 1 / 6);
+
+    if (this.a < tidalLockingRadius) {
+      // Tidally locked - rotation period equals orbital period
+      this.dayLength = this.orbitalPeriod * 24;
+    } else if (this.isGasGiant) {
+      // Gas giants rotate faster due to conservation of angular momentum during formation
+      // Typically 10-20 hours, scaled by mass
+      const baseDayLength = 10 + 10 * Math.random();
+      // Larger gas giants spin slower
+      const massEffect = Math.pow(this.earthMass / 300, 0.15);
+      this.dayLength = baseDayLength * massEffect;
     } else {
-      // Simplified day length calculation
-      this.dayLength = 24; // Default to Earth-like
+      // Rocky planets - base rotation depends on several factors:
+      // 1. Size (smaller planets lose angular momentum faster due to tidal forces)
+      // 2. Distance from star (closer = more tidal braking)
+      // 3. Presence of large moons (not modeled here, but would slow rotation)
+
+      // Start with a base rotation period (Earth-like ~24 hours)
+      let baseDayLength = 24;
+
+      // Modify based on mass - smaller planets tend to rotate slower
+      const massEffect = Math.pow(this.earthMass, -0.15);
+
+      // Modify based on distance - closer planets experience more tidal braking
+      const distanceEffect = Math.pow(this.a, 0.3);
+
+      // Add some randomness for orbital history, impacts, etc.
+      const randomFactor = 0.7 + 0.6 * Math.random();
+
+      this.dayLength =
+        baseDayLength * massEffect * distanceEffect * randomFactor;
+
+      // Cap at a reasonable maximum (not tidally locked but slow rotators)
+      this.dayLength = Math.min(this.dayLength, this.orbitalPeriod * 24 * 0.5);
     }
 
     // Mark as calculated

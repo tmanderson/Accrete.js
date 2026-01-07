@@ -1,11 +1,11 @@
+<!doctype html>
 <html>
   <head>
-    <title>ACCRETE</title>
+    <title>ACCRETE - 3D Star System Viewer</title>
     <meta charset="utf-8" />
     <style>
       html,
-      body,
-      canvas {
+      body {
         position: absolute;
         top: 0;
         left: 0;
@@ -13,26 +13,40 @@
         margin: 0;
         height: 100vh;
         width: 100vw;
-        z-index: 0;
+        overflow: hidden;
+        font-family: monospace;
+        background: #000;
       }
 
-      button {
-        position: relative;
-        z-index: 1;
+      #canvas-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
       }
 
       aside {
         display: flex;
-        border-right: 2px solid black;
-        border-bottom: 2px solid black;
+        border-right: 2px solid #333;
+        border-bottom: 2px solid #333;
         flex-direction: column;
         padding: 10px;
-        position: relative;
+        position: fixed;
         left: 0;
         top: 0;
-        max-width: 180px;
+        max-width: 200px;
         z-index: 2;
-        background: white;
+        background: rgba(0, 0, 0, 0.85);
+        color: #fff;
+        backdrop-filter: blur(10px);
+      }
+
+      aside h3 {
+        margin: 0 0 10px 0;
+        font-size: 14px;
+        color: #8cf;
       }
 
       #planetInfo {
@@ -42,13 +56,15 @@
         max-width: 400px;
         max-height: 90vh;
         overflow-y: auto;
-        background: rgba(255, 255, 255, 0.95);
-        border: 2px solid black;
+        background: rgba(0, 0, 0, 0.9);
+        border: 2px solid #8cf;
         padding: 15px;
         z-index: 3;
         font-family: monospace;
         font-size: 12px;
+        color: #fff;
         display: none;
+        backdrop-filter: blur(10px);
       }
 
       #planetInfo.visible {
@@ -58,8 +74,9 @@
       #planetInfo h3 {
         margin: 0 0 10px 0;
         font-size: 14px;
-        border-bottom: 1px solid #ccc;
+        border-bottom: 1px solid #8cf;
         padding-bottom: 5px;
+        color: #8cf;
       }
 
       #planetInfo .property {
@@ -71,47 +88,88 @@
       #planetInfo .property-label {
         font-weight: bold;
         margin-right: 10px;
+        color: #aaa;
       }
 
       #planetInfo .property-value {
         text-align: right;
+        color: #fff;
       }
 
       #planetInfo .section {
         margin-top: 15px;
         padding-top: 10px;
-        border-top: 1px solid #eee;
+        border-top: 1px solid #333;
       }
 
       #planetInfo .section-title {
         font-weight: bold;
         margin-bottom: 5px;
-        color: #333;
+        color: #8cf;
       }
 
       aside > div {
         display: flex;
+        align-items: center;
+        margin: 5px 0;
       }
 
       aside > div > label {
-        flex: 1 1 auto;
-        width: 20%;
-        max-width: 40%;
+        flex: 0 0 30px;
+        color: #8cf;
       }
 
-      canvas {
-        position: absolute;
-        left: 0;
-        height: 100vh;
-        top: 0;
-        width: 100vw;
-        z-index: 0;
+      aside input[type="range"] {
+        flex: 1;
+        margin-left: 5px;
+      }
+
+      aside input[type="checkbox"] {
+        margin-left: 5px;
+      }
+
+      button {
+        margin-top: 10px;
+        padding: 8px;
+        background: #8cf;
+        border: none;
+        color: #000;
+        font-weight: bold;
+        cursor: pointer;
+        font-family: monospace;
+        transition: background 0.2s;
+      }
+
+      button:hover {
+        background: #acf;
+      }
+
+      button:disabled {
+        background: #555;
+        color: #888;
+        cursor: not-allowed;
+      }
+
+      #loading {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #8cf;
+        font-size: 24px;
+        z-index: 1;
+        display: none;
+      }
+
+      #loading.visible {
+        display: block;
       }
     </style>
   </head>
 
   <body>
     <aside>
+      <h3>Star System Generator</h3>
       <div>
         <label>A</label>
         <input
@@ -169,28 +227,113 @@
         <input name="ALPHA" type="range" min="5" max="10" step="1" value="5" />
       </div>
       <div>
-        <label>Defaults</label> <input type="checkbox" name="default" />
+        <label>Defaults</label>
+        <input type="checkbox" name="default" />
       </div>
-      <button>Generate Star System</button>
+      <button id="generateBtn">Generate Star System</button>
     </aside>
     <div id="planetInfo"></div>
-    <canvas></canvas>
+    <div id="loading">Generating...</div>
+    <div id="canvas-container"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
+      // Worker setup
       var accrete = new Worker("dist/accrete.worker.js");
-      var canvas = document.querySelector("canvas");
-      canvas.height = document.body.offsetHeight;
-      canvas.width = document.body.offsetWidth;
 
-      const hscale = Math.floor(canvas.width / 3);
-      const vscale = Math.floor(canvas.height / 2);
-      const rscale = canvas.width / (0.5 * canvas.height);
+      // Three.js setup
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(
+        60,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        10000,
+      );
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setClearColor(0x000000);
+      document
+        .getElementById("canvas-container")
+        .appendChild(renderer.domElement);
 
-      var ctx = canvas.getContext("2d");
-      ctx.font = "12px monospace";
-      var btn = document.querySelector("button");
-      var loadingInterval;
-      var currentPlanets = [];
-      var planetPositions = [];
+      // Camera position
+      camera.position.set(0, 150, 200);
+      camera.lookAt(0, 0, 0);
+
+      // Lighting
+      const ambientLight = new THREE.AmbientLight(0x333333);
+      scene.add(ambientLight);
+
+      const sunLight = new THREE.PointLight(0xffff88, 2, 1000);
+      sunLight.position.set(0, 0, 0);
+      scene.add(sunLight);
+
+      // Stars background
+      const starsGeometry = new THREE.BufferGeometry();
+      const starsMaterial = new THREE.PointsMaterial({
+        color: 0xffffff,
+        size: 0.5,
+      });
+      const starsVertices = [];
+      for (let i = 0; i < 10000; i++) {
+        const x = (Math.random() - 0.5) * 2000;
+        const y = (Math.random() - 0.5) * 2000;
+        const z = (Math.random() - 0.5) * 2000;
+        starsVertices.push(x, y, z);
+      }
+      starsGeometry.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(starsVertices, 3),
+      );
+      const stars = new THREE.Points(starsGeometry, starsMaterial);
+      scene.add(stars);
+
+      // Sun
+      const sunGeometry = new THREE.SphereGeometry(5, 32, 32);
+      const sunMaterial = new THREE.MeshBasicMaterial({
+        color: 0xffff44,
+        emissive: 0xffff44,
+        emissiveIntensity: 1,
+      });
+      const sun = new THREE.Mesh(sunGeometry, sunMaterial);
+      scene.add(sun);
+
+      // Add sun glow
+      const glowGeometry = new THREE.SphereGeometry(7, 32, 32);
+      const glowMaterial = new THREE.MeshBasicMaterial({
+        color: 0xffaa00,
+        transparent: true,
+        opacity: 0.3,
+      });
+      const sunGlow = new THREE.Mesh(glowGeometry, glowMaterial);
+      scene.add(sunGlow);
+
+      // Planet system
+      let planets = [];
+      let planetMeshes = [];
+      let orbitLines = [];
+      let selectedPlanet = null;
+      let cameraFollowTarget = null;
+
+      // Raycaster for click detection
+      const raycaster = new THREE.Raycaster();
+      const mouse = new THREE.Vector2();
+
+      // UI elements
+      const btn = document.getElementById("generateBtn");
+      const loadingDiv = document.getElementById("loading");
+
+      function getConstValues() {
+        if (document.querySelector('aside input[type="checkbox"]').checked)
+          return {};
+        return Array.from(document.querySelectorAll("aside input")).reduce(
+          (config, el) => {
+            if (el.type === "checkbox" || el.name === "") return config;
+            return Object.assign(config, { [el.name]: parseFloat(el.value) });
+          },
+          {},
+        );
+      }
 
       function createSystem() {
         accrete.postMessage(getConstValues());
@@ -198,39 +341,158 @@
           (el) => (el.disabled = true),
         );
         btn.disabled = true;
-        var i = 0;
+        loadingDiv.className = "visible";
 
-        loadingInterval = setInterval(function () {
-          var l = ((e.target.innerText.match(/\.+$/) || [])[1] || "").length;
+        let i = 0;
+        const loadingInterval = setInterval(function () {
           i += 1;
-          e.target.innerText =
-            "Generating" + new Array(i % 4).fill(".").join("");
+          loadingDiv.innerText = "Generating" + ".".repeat(i % 4);
         }, 500);
+        btn.loadingInterval = loadingInterval;
       }
 
       btn.onclick = createSystem;
 
-      function getConstValues() {
-        if (document.querySelector('aside input[type="checkbox"]').checked)
-          return {};
-        return Array.from(document.querySelectorAll("aside input")).reduce(
-          (config, el) => {
-            if (el.type === "checkbox" || el.style.display === "none")
-              return config;
-            return Object.assign(config, { [el.name]: parseFloat(el.value) });
-          },
-          {},
-        );
-      }
-
       document.body.addEventListener(
         "input",
         function (e) {
-          if (e.target.tagName !== "INPUT") return;
+          if (e.target.tagName !== "INPUT" || e.target.type === "checkbox")
+            return;
           createSystem();
         },
         true,
       );
+
+      // Logarithmic scale for distance
+      function logScale(au) {
+        // Scale factor to spread out planets nicely
+        const scale = 40;
+        return Math.log10(au + 1) * scale;
+      }
+
+      function getPlanetColor(planet) {
+        if (planet.isGasGiant) {
+          // Gas giants: blues, purples, tans
+          if (planet.surfaceTempCelsius < -100) return 0x6699ff; // Cold - blue
+          if (planet.surfaceTempCelsius < 0) return 0xccaa77; // Medium - tan
+          return 0xff9944; // Hot - orange
+        } else {
+          // Rocky planets
+          if (planet.iceCover > 0.5) return 0xeeffff; // Ice world
+          if (planet.hydrosphere > 0.5) return 0x4477ff; // Water world
+          if (planet.surfacePressure < 1) {
+            // Airless
+            if (planet.surfaceTempCelsius > 200) return 0x886644; // Hot rock
+            return 0x997766; // Cold rock
+          }
+          // Has atmosphere
+          if (
+            planet.hydrosphere > 0.2 &&
+            planet.surfaceTempCelsius > -20 &&
+            planet.surfaceTempCelsius < 50
+          ) {
+            return 0x2266cc; // Earth-like
+          }
+          if (planet.surfaceTempCelsius > 100) return 0xdd8844; // Hot with atmosphere
+          return 0xaa8866; // Cold with atmosphere
+        }
+      }
+
+      function createPlanetMaterial(planet) {
+        const color = getPlanetColor(planet);
+        const material = new THREE.MeshPhongMaterial({
+          color: color,
+          shininess: planet.hydrosphere > 0.3 ? 30 : 5,
+          emissive: 0x000000,
+        });
+
+        // Add some roughness for gas giants
+        if (planet.isGasGiant) {
+          material.shininess = 10;
+        }
+
+        return material;
+      }
+
+      function createPlanet(planet, index, fastestPeriod) {
+        // Size based on radius (logarithmic scale)
+        const size = Math.max(0.5, Math.log10(planet.radius / 1000 + 1) * 1.5);
+
+        const geometry = new THREE.SphereGeometry(size, 32, 32);
+        const material = createPlanetMaterial(planet);
+        const mesh = new THREE.Mesh(geometry, material);
+
+        // Store planet data
+        mesh.userData.planet = planet;
+        mesh.userData.index = index;
+        mesh.userData.size = size;
+        mesh.userData.angle = Math.random() * Math.PI * 2; // Random starting position
+
+        // Scale orbital speeds logarithmically (like distance) so outer planets are still visible
+        // Use log scale to compress the range of speeds
+        const logPeriodThis = Math.log10(planet.orbitalPeriod);
+        const logPeriodFastest = Math.log10(fastestPeriod);
+        const logRatio = logPeriodFastest / logPeriodThis;
+
+        const baseSpeed = 0.002; // Base speed for fastest planet
+        mesh.userData.speed = baseSpeed * logRatio;
+
+        // Create orbit line
+        const orbitRadius = logScale(planet.axis);
+        const orbitGeometry = new THREE.BufferGeometry();
+        const orbitPoints = [];
+        const segments = 128;
+
+        for (let i = 0; i <= segments; i++) {
+          const angle = (i / segments) * Math.PI * 2;
+          // Apply eccentricity
+          const r =
+            (orbitRadius * (1 - planet.eccentricity * planet.eccentricity)) /
+            (1 + planet.eccentricity * Math.cos(angle));
+          orbitPoints.push(r * Math.cos(angle), 0, r * Math.sin(angle));
+        }
+
+        orbitGeometry.setAttribute(
+          "position",
+          new THREE.Float32BufferAttribute(orbitPoints, 3),
+        );
+
+        const orbitMaterial = new THREE.LineBasicMaterial({
+          color: 0x666666,
+          transparent: true,
+          opacity: 0.5,
+        });
+        const orbitLine = new THREE.Line(orbitGeometry, orbitMaterial);
+        orbitLine.renderOrder = -1; // Render orbit lines before other objects
+        scene.add(orbitLine);
+        orbitLines.push(orbitLine);
+
+        scene.add(mesh);
+        planetMeshes.push(mesh);
+
+        return mesh;
+      }
+
+      function clearPlanets() {
+        planetMeshes.forEach((mesh) => {
+          scene.remove(mesh);
+          mesh.geometry.dispose();
+          mesh.material.dispose();
+        });
+        planetMeshes = [];
+
+        orbitLines.forEach((line) => {
+          scene.remove(line);
+          line.geometry.dispose();
+          line.material.dispose();
+        });
+        orbitLines = [];
+
+        selectedPlanet = null;
+        cameraFollowTarget = null;
+        cameraDistance = 200; // Reset camera distance
+        document.getElementById("planetInfo").className = "";
+      }
 
       function showPlanetInfo(planet, planetNum) {
         const infoDiv = document.getElementById("planetInfo");
@@ -287,7 +549,13 @@
             </div>
             <div class="property">
               <span class="property-label">Orbital Zone:</span>
-              <span class="property-value">${planet.orbitalZone === 1 ? "Inner" : planet.orbitalZone === 2 ? "Habitable" : "Outer"}</span>
+              <span class="property-value">${
+                planet.orbitalZone === 1
+                  ? "Inner"
+                  : planet.orbitalZone === 2
+                    ? "Habitable"
+                    : "Outer"
+              }</span>
             </div>
           </div>
 
@@ -311,7 +579,10 @@
             </div>
             <div class="property">
               <span class="property-label">Escape Velocity:</span>
-              <span class="property-value">${fmt(planet.escapeVelocity / 100000, 1)} km/s</span>
+              <span class="property-value">${fmt(
+                planet.escapeVelocity / 100000,
+                1,
+              )} km/s</span>
             </div>
             <div class="property">
               <span class="property-label">Axial Tilt:</span>
@@ -339,11 +610,17 @@
             </div>
             <div class="property">
               <span class="property-label">Min Mol. Weight:</span>
-              <span class="property-value">${fmt(planet.molecularWeightRetained, 1)}</span>
+              <span class="property-value">${fmt(
+                planet.molecularWeightRetained,
+                1,
+              )}</span>
             </div>
             <div class="property">
               <span class="property-label">Water Boiling Pt:</span>
-              <span class="property-value">${fmt(planet.boilingPoint - 273.15, 1)}°C</span>
+              <span class="property-value">${fmt(
+                planet.boilingPoint - 273.15,
+                1,
+              )}°C</span>
             </div>
           </div>
 
@@ -372,7 +649,9 @@
               ? `
           <div class="section">
             <div class="section-title">Habitability Notes</div>
-            ${habitabilityNotes.map((note) => `<div style="margin: 3px 0;">• ${note}</div>`).join("")}
+            ${habitabilityNotes
+              .map((note) => `<div style="margin: 3px 0;">• ${note}</div>`)
+              .join("")}
           </div>
           `
               : ""
@@ -383,159 +662,190 @@
         infoDiv.className = "visible";
       }
 
-      function drawGrid() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = "black";
-
-        for (var i = 0; i < 3; i++) {
-          const offset = i * hscale;
-          for (var j = 1; j <= 10; j++) {
-            const x = hscale * Math.log10(j);
-            let tickLen = 50;
-
-            if (i > 0 && j === 1) {
-              const label = `${Math.pow(10, i - 1)} AU`;
-              ctx.fillText(
-                label,
-                offset + x - ctx.measureText(label).width / 2,
-                canvas.height - 70,
-              );
-            } else {
-              tickLen = 20;
-            }
-
-            ctx.beginPath();
-            ctx.moveTo(offset + x, canvas.height);
-            ctx.lineTo(offset + x, canvas.height - tickLen);
-            ctx.stroke();
-          }
-        }
-
-        ctx.stroke();
-      }
-
-      function drawPlanet(p, idx) {
-        ctx.beginPath();
-        ctx.fillStyle = "white";
-
-        const au = Math.log10(p.axis);
-
-        const rad = Math.pow(p.earthMass, 1 / 3);
-        const r = Math.max(1, rad * rscale);
-        const offset = au * hscale;
-
-        const x = offset + hscale - r;
-        const y = vscale - r;
-
-        // Store planet position for click detection
-        planetPositions[idx] = { x: x, y: y, r: r, planet: p, index: idx };
-
-        const au_p =
-          r * Math.log10(p.axis + (p.axis - p.perihelion) / p.axis - p.xp);
-        const au_a =
-          r * Math.log10(p.axis + (p.aphelion - p.axis) / p.axis + p.xa);
-
-        const stripeScale = 2;
-        const fh = Math.round((2 * r) / stripeScale);
-        const hfh = fh / 2;
-
-        ctx.arc(x, y, r, 0, 2 * Math.PI);
-
-        if (p.isGasGiant) {
-          for (var i = -hfh; i < hfh; i++) {
-            const w = r * Math.cos((i / fh) * Math.PI);
-            const h = r * Math.sin((i / fh) * Math.PI);
-            ctx.moveTo(x - w, y + h);
-            ctx.lineTo(x + w, y + h);
-          }
-        }
-
-        ctx.fill();
-        ctx.stroke();
-        ctx.beginPath();
-
-        ctx.moveTo(x, y + r + 50);
-        ctx.lineTo(x, y + r + 10);
-
-        ctx.moveTo(x, y + r + 50);
-        ctx.lineTo(x - au_p, y + r + 50);
-        ctx.lineTo(x - au_p, y + r + 10);
-
-        ctx.moveTo(x, y + r + 50);
-        ctx.lineTo(x + au_a, y + r + 50);
-        ctx.lineTo(x + au_a, y + r + 10);
-
-        ctx.stroke();
-
-        var axisLabel = p.axis.toFixed(2) + " AU";
-        var massLabel = p.earthMass.toFixed(2) + " M⊕";
-        ctx.fillStyle = "black";
-
-        ctx.fillText(
-          axisLabel,
-          x - ctx.measureText(axisLabel).width / 2,
-          y + (idx % 2 ? -1 : 1) * (r + (idx % 2 ? 10 : 80)),
-        );
-        ctx.fillText(
-          massLabel,
-          x - ctx.measureText(massLabel).width / 2,
-          y + (idx % 2 ? -1 : 1) * (r + (idx % 2 ? 20 : 90)),
-        );
-      }
-
-      // Add click handler for planets
-      canvas.addEventListener("click", function (e) {
-        const rect = canvas.getBoundingClientRect();
-        const clickX = e.clientX - rect.left;
-        const clickY = e.clientY - rect.top;
-
-        // Check if click is on any planet
-        for (let i = 0; i < planetPositions.length; i++) {
-          const pos = planetPositions[i];
-          const dx = clickX - pos.x;
-          const dy = clickY - pos.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-
-          if (distance <= 100) {
-            showPlanetInfo(pos.planet, i + 1);
-            return;
-          }
-        }
-
-        // Click outside any planet - hide info panel
-        document.getElementById("planetInfo").className = "";
+      // Handle window resize
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
       });
 
-      drawGrid();
+      // Mouse click handling
+      renderer.domElement.addEventListener("click", (event) => {
+        // Don't trigger click if we were dragging
+        const dragDistance = Math.sqrt(
+          Math.pow(event.clientX - previousMousePosition.x, 2) +
+            Math.pow(event.clientY - previousMousePosition.y, 2),
+        );
+        if (dragDistance > 5) return; // Was a drag, not a click
 
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(planetMeshes);
+
+        if (intersects.length > 0) {
+          const clickedMesh = intersects[0].object;
+
+          // Deselect previous
+          if (selectedPlanet) {
+            selectedPlanet.material.emissive.setHex(0x000000);
+          }
+
+          // Select new planet
+          selectedPlanet = clickedMesh;
+          selectedPlanet.material.emissive.setHex(0x444444);
+
+          // Set camera to follow this planet
+          cameraFollowTarget = clickedMesh;
+          cameraDistance = 30; // Zoom in closer to the planet
+
+          showPlanetInfo(
+            clickedMesh.userData.planet,
+            clickedMesh.userData.index + 1,
+          );
+        } else {
+          // Clicked empty space
+          if (selectedPlanet) {
+            selectedPlanet.material.emissive.setHex(0x000000);
+            selectedPlanet = null;
+          }
+          cameraFollowTarget = null;
+          cameraDistance = 200; // Zoom back out
+          document.getElementById("planetInfo").className = "";
+        }
+      });
+
+      // Simple camera controls with mouse
+      let isDragging = false;
+      let previousMousePosition = { x: 0, y: 0 };
+      let cameraRotation = { x: 0, y: 0 };
+      let cameraDistance = 200;
+
+      renderer.domElement.addEventListener("mousedown", (e) => {
+        // Allow dragging with left click (button 0), right click (button 2), or middle mouse (button 1)
+        isDragging = true;
+        previousMousePosition = { x: e.clientX, y: e.clientY };
+      });
+
+      renderer.domElement.addEventListener("mousemove", (e) => {
+        if (isDragging) {
+          const deltaX = e.clientX - previousMousePosition.x;
+          const deltaY = e.clientY - previousMousePosition.y;
+
+          cameraRotation.y += deltaX * 0.005;
+          cameraRotation.x += deltaY * 0.005;
+
+          // Clamp vertical rotation
+          cameraRotation.x = Math.max(
+            -Math.PI / 2,
+            Math.min(Math.PI / 2, cameraRotation.x),
+          );
+
+          previousMousePosition = { x: e.clientX, y: e.clientY };
+        }
+      });
+
+      renderer.domElement.addEventListener("mouseup", () => {
+        isDragging = false;
+      });
+
+      renderer.domElement.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        cameraDistance += e.deltaY * 0.1;
+        cameraDistance = Math.max(20, Math.min(1000, cameraDistance));
+      });
+
+      // Prevent context menu on right click
+      renderer.domElement.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+      });
+
+      // Animation loop
+      function animate() {
+        requestAnimationFrame(animate);
+
+        // Determine camera target (follow planet or center on star)
+        let cameraTarget = new THREE.Vector3(0, 0, 0);
+        if (cameraFollowTarget && cameraFollowTarget.position) {
+          cameraTarget = cameraFollowTarget.position.clone();
+        }
+
+        // Update camera position relative to target
+        camera.position.x =
+          cameraTarget.x +
+          cameraDistance *
+            Math.sin(cameraRotation.y) *
+            Math.cos(cameraRotation.x);
+        camera.position.y =
+          cameraTarget.y + cameraDistance * Math.sin(cameraRotation.x);
+        camera.position.z =
+          cameraTarget.z +
+          cameraDistance *
+            Math.cos(cameraRotation.y) *
+            Math.cos(cameraRotation.x);
+        camera.lookAt(cameraTarget);
+
+        // Animate planets
+        planetMeshes.forEach((mesh) => {
+          const planet = mesh.userData.planet;
+          mesh.userData.angle += mesh.userData.speed;
+
+          const orbitRadius = logScale(planet.axis);
+          const angle = mesh.userData.angle;
+
+          // Apply eccentricity to orbit
+          const r =
+            (orbitRadius * (1 - planet.eccentricity * planet.eccentricity)) /
+            (1 + planet.eccentricity * Math.cos(angle));
+
+          mesh.position.x = r * Math.cos(angle);
+          mesh.position.z = r * Math.sin(angle);
+
+          // Rotate planet on its axis
+          mesh.rotation.y += 0.01;
+        });
+
+        // Rotate sun
+        sun.rotation.y += 0.001;
+        sunGlow.rotation.y -= 0.001;
+
+        renderer.render(scene, camera);
+      }
+
+      animate();
+
+      // Handle worker response
       accrete.onmessage = function (e) {
         Array.from(document.querySelectorAll("aside input")).forEach(
           (el) => (el.disabled = false),
         );
 
         btn.disabled = false;
-        btn.innerText = "Generate Star System";
-        clearInterval(loadingInterval);
+        loadingDiv.className = "";
+        clearInterval(btn.loadingInterval);
 
-        const planets = e.data;
-        currentPlanets = planets.sort((p1, p2) => p1.axis - p2.axis);
-        planetPositions = []; // Reset positions
+        const receivedPlanets = e.data;
+        planets = receivedPlanets.sort((p1, p2) => p1.axis - p2.axis);
 
-        var s = 50 / canvas.width;
-        var inc = 100;
+        console.log("Generated planets:", planets);
 
-        drawGrid();
-        console.log(currentPlanets);
-        currentPlanets.map((p, i) => {
-          var shade = Math.floor(
-            ((0.6 * planets.length - i) / planets.length) * 255,
-          );
-          var rgba = [shade, shade, shade, 1];
-          ctx.fillStyle = `rgba(${rgba.join(",")})`;
+        // Clear previous planets
+        clearPlanets();
 
-          drawPlanet(p, i);
+        // Find the fastest orbital period (smallest number)
+        const fastestPeriod = Math.min(...planets.map((p) => p.orbitalPeriod));
+
+        // Create new planets
+        planets.forEach((planet, index) => {
+          createPlanet(planet, index, fastestPeriod);
         });
       };
+
+      // Initial camera setup
+      cameraRotation.x = Math.PI / 6; // 30 degrees down
+      cameraRotation.y = -Math.PI / 4; // 45 degrees around
+      cameraDistance = 200;
     </script>
   </body>
 </html>
