@@ -14,17 +14,20 @@ export default class StarSystem {
         N: CONST.N,
         Q: CONST.Q,
         W: CONST.W,
-        ALPHA: CONST.α
+        ALPHA: CONST.α,
       },
-      constants
+      constants,
     );
     for (const k in this.config) {
       if (this.config.hasOwnProperty(k)) {
         console.log(`${k}: ${this.config[k]}`);
       }
     }
-    this.mass = 1;
-    this.luminosity = 1;
+    // Star properties - can be overridden by constants parameter
+    this.mass = constants.stellarMass || constants.mass || 1;
+    this.luminosity = constants.stellarLuminosity || constants.luminosity || 1;
+    this.age = constants.stellarAge || constants.age || 5e9; // 5 billion years default
+
     this.matter = new DustCloud(this);
     this.planets = [];
   }
@@ -36,7 +39,7 @@ export default class StarSystem {
       this.planets = this.checkCollisions(this.planets);
     }
     console.log(
-      `Created system of ${this.planets.length} planets after ${i} iterations`
+      `Created system of ${this.planets.length} planets after ${i} iterations`,
     );
     return this;
   }
@@ -82,7 +85,7 @@ export default class StarSystem {
     const p1_p = p1.rp - p1.xp;
     const p1_a = p1.ra + p1.xa;
 
-    return planets.findIndex(p2 => {
+    return planets.findIndex((p2) => {
       const p2_p = p2.rp - p2.xp;
       const p2_a = p2.ra + p2.xa;
       return (p1_p < p2_a && p1_a > p2_p) || (p2_p < p1_a && p2_a > p1_p);

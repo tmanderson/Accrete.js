@@ -227,6 +227,28 @@
         <input name="ALPHA" type="range" min="5" max="10" step="1" value="5" />
       </div>
       <div>
+        <label>Mass</label>
+        <input
+          name="stellarMass"
+          type="range"
+          min="0.1"
+          max="2.0"
+          step="0.05"
+          value="1.0"
+        />
+      </div>
+      <div>
+        <label>Lum</label>
+        <input
+          name="stellarLuminosity"
+          type="range"
+          min="0.01"
+          max="10.0"
+          step="0.1"
+          value="1.0"
+        />
+      </div>
+      <div>
         <label>Defaults</label>
         <input type="checkbox" name="default" />
       </div>
@@ -328,15 +350,102 @@
           return {};
         return Array.from(document.querySelectorAll("aside input")).reduce(
           (config, el) => {
-            if (el.type === "checkbox" || el.name === "") return config;
+            if (
+              el.type === "checkbox" ||
+              el.name === "" ||
+              el.name === "stellarMass" ||
+              el.name === "stellarLuminosity"
+            )
+              return config;
             return Object.assign(config, { [el.name]: parseFloat(el.value) });
           },
           {},
         );
       }
 
+      // Get stellar mass and luminosity from sliders
+      function getStellarProperties() {
+        const massInput = document.querySelector('input[name="stellarMass"]');
+        const lumInput = document.querySelector(
+          'input[name="stellarLuminosity"]',
+        );
+        return {
+          stellarMass: massInput ? parseFloat(massInput.value) : 1.0,
+          stellarLuminosity: lumInput ? parseFloat(lumInput.value) : 1.0,
+        };
+      }
+
+      // Update star visual based on mass and luminosity
+      function updateStarVisual(mass, luminosity) {
+        // Validate inputs
+        if (!mass || !luminosity || isNaN(mass) || isNaN(luminosity)) {
+          console.error("Invalid mass or luminosity:", mass, luminosity);
+          return;
+        }
+
+        // Star radius scales with mass (R ∝ M^0.8)
+        const radius = 5 * Math.pow(mass, 0.8);
+
+        // Dispose old geometry and create new one
+        if (sun.geometry) sun.geometry.dispose();
+        sun.geometry = new THREE.SphereGeometry(radius, 32, 32);
+
+        // Glow radius should be proportionally larger
+        const glowRadius = radius * 1.4;
+        if (sunGlow.geometry) sunGlow.geometry.dispose();
+        sunGlow.geometry = new THREE.SphereGeometry(glowRadius, 32, 32);
+
+        // Star color based on mass (mass-temperature relationship)
+        // Low mass stars (~0.1-0.5 M☉) are red/orange
+        // Solar mass stars (~0.8-1.2 M☉) are yellow/white
+        // High mass stars (>1.5 M☉) are blue/white
+        let starColor, glowColor;
+        if (mass < 0.5) {
+          // Red dwarf
+          starColor = new THREE.Color(0xff6633);
+          glowColor = new THREE.Color(0xff4400);
+        } else if (mass < 0.8) {
+          // Orange dwarf
+          starColor = new THREE.Color(0xffaa44);
+          glowColor = new THREE.Color(0xff8800);
+        } else if (mass < 1.2) {
+          // Yellow star (like our Sun)
+          starColor = new THREE.Color(0xffff44);
+          glowColor = new THREE.Color(0xffaa00);
+        } else if (mass < 1.5) {
+          // Yellow-white
+          starColor = new THREE.Color(0xffffaa);
+          glowColor = new THREE.Color(0xffdd88);
+        } else {
+          // Blue-white (hot, massive star)
+          starColor = new THREE.Color(0xaaccff);
+          glowColor = new THREE.Color(0x88aaff);
+        }
+
+        sun.material.color.copy(starColor);
+        sun.material.emissive.copy(starColor);
+        sunGlow.material.color.copy(glowColor);
+
+        // Update light intensity based on luminosity
+        sunLight.intensity = 2 * Math.sqrt(luminosity);
+        sunLight.distance = 1000 * Math.sqrt(luminosity);
+      }
+
       function createSystem() {
-        accrete.postMessage(getConstValues());
+        const config = getConstValues();
+        const stellarProps = getStellarProperties();
+
+        // Merge stellar properties into config
+        Object.assign(config, stellarProps);
+
+        accrete.postMessage(config);
+
+        // Update star visual immediately
+        updateStarVisual(
+          stellarProps.stellarMass,
+          stellarProps.stellarLuminosity,
+        );
+
         Array.from(document.querySelectorAll("aside input")).forEach(
           (el) => (el.disabled = true),
         );
@@ -358,6 +467,22 @@
         function (e) {
           if (e.target.tagName !== "INPUT" || e.target.type === "checkbox")
             return;
+
+          // Don't auto-regenerate for stellar mass/luminosity changes
+          // These will be applied on manual button click
+          if (
+            e.target.name === "stellarMass" ||
+            e.target.name === "stellarLuminosity"
+          ) {
+            // Just update the visual without regenerating the system
+            const stellarProps = getStellarProperties();
+            updateStarVisual(
+              stellarProps.stellarMass,
+              stellarProps.stellarLuminosity,
+            );
+            return;
+          }
+
           createSystem();
         },
         true,
@@ -809,6 +934,18 @@
         // Rotate sun
         sun.rotation.y += 0.001;
         sunGlow.rotation.y -= 0.001;
+
+        // Pulsing glow effect - simulate stellar activity
+        const time = Date.now() * 0.001; // Convert to seconds
+        const pulse1 = Math.sin(time * 0.5) * 0.15; // Slow pulse
+        const pulse2 = Math.sin(time * 2.3) * 0.05; // Faster flicker
+        const pulse3 = Math.sin(time * 4.7) * 0.02; // Even faster variation
+        const pulseAmount = 1.0 + pulse1 + pulse2 + pulse3;
+
+        // Apply pulse to glow opacity and scale
+        sunGlow.material.opacity = 0.3 * pulseAmount;
+        const glowScale = 1.0 + (pulseAmount - 1.0) * 0.3;
+        sunGlow.scale.set(glowScale, glowScale, glowScale);
 
         renderer.render(scene, camera);
       }
