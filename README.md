@@ -1,4 +1,4 @@
-# ACCRETE v.1.0.0
+# ACCRETE v.2.0.0
 
 ### Planetary system creation simulation in the browser, or the server.
 
