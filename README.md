@@ -2,6 +2,8 @@
 
 ### Planetary system creation simulation in the browser, or the server.
 
+**[View Live Demo](https://tmanderson.github.io/Accrete.js/)**
+
 The codebase has been completely reimplemented from scratch in a form that more [**closely resembles that put forth in the original Dole paper**](http://www.rand.org/pubs/papers/2005/P4226.pdf).
 
 ![Example of Dole Model output](assets/accrete.gif)
