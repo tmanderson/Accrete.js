@@ -437,9 +437,14 @@ export const grnhouse = (r_ecosphere, orb_radius) => {
 /*	I tuned this by changing a Math.pow(x,.25) to Math.pow(x,.4) to match Venus - JLB	*/
 /*--------------------------------------------------------------------------*/
 export const green_rise = (optical_depth, effective_temp, surf_pressure) => {
+  // Limit the convection factor to prevent runaway greenhouse calculations
+  // on gas giants with extremely high surface pressures.
+  // For very high pressures (>1000x Earth), cap the pressure effect.
+  const pressure_ratio = surf_pressure / C.EARTH_SURF_PRES_IN_MILLIBARS;
+  const capped_pressure_ratio = Math.min(pressure_ratio, 1000);
+
   const convection_factor =
-    C.EARTH_CONVECTION_FACTOR *
-    Math.pow(surf_pressure / C.EARTH_SURF_PRES_IN_MILLIBARS, 0.4);
+    C.EARTH_CONVECTION_FACTOR * Math.pow(capped_pressure_ratio, 0.4);
 
   const rise =
     (pow1_4(1.0 + 0.75 * optical_depth) - 1.0) *
@@ -642,13 +647,13 @@ export const calculate_surface_temp = (
     set_temp_range(planet);
   }
 
-  if (planet.greenhouse_effect && planet.max_temp < planet.boil_point) {
+  if (planet.greenhouse_effect && planet.temps.max < planet.boil_point) {
     if (DEBUG) {
       console.error(
         "Deluge: %s %d max (%Lf) < boil (%Lf)\n",
         planet.sun.name,
         planet.planet_no,
-        planet.max_temp,
+        planet.temps.max,
         planet.boil_point,
       );
     }
@@ -688,7 +693,7 @@ export const calculate_surface_temp = (
     planet.cloud_cover = 1.0;
 
   if (
-    planet.high_temp >= planet.boil_point &&
+    planet.temps.high >= planet.boil_point &&
     !first &&
     !(planet.day == planet.orb_period * 24.0 || planet.resonant_period)
   ) {
@@ -829,9 +834,9 @@ export const breathability = (planet) => {
   let oxygen_ok = false;
   let index;
 
-  const surfacePressure = planet.surfacePressure || planet.surf_pressure || 0;
+  const surfacePressure = planet.surfacePressure || 0;
   const atmosphere = planet.atmosphere || [];
-  const gasCount = planet.gases || 0;
+  const gasCount = planet.gases.length;
 
   // No atmosphere
   if (gasCount === 0 || atmosphere.length === 0) return 0; // NONE
@@ -877,47 +882,36 @@ export const soft = (v, max, min) => {
   return ((lim((2 * dv) / dm - 1) + 1) / 2) * dm + min;
 };
 
-export const set_temp_range = (planet) => {
-  const pressmod = 1 / Math.sqrt(1 + (20 * planet.surf_pressure) / 1000.0);
-  const ppmod = 1 / Math.sqrt(10 + (5 * planet.surf_pressure) / 1000.0);
-  const eccentricity = planet.eccentricity || planet.e || 0;
+export const calculateTempRange = (planet) => {
+  // Cap surface pressure for the pressure modifier calculation to prevent
+  // extreme values from causing numerical instability
+  const capped_pressure = Math.min(planet.surfaceTemp, 100000);
+
+  const pressmod = 1 / Math.sqrt(1 + (20 * capped_pressure) / 1000.0);
+  const ppmod = 1 / Math.sqrt(10 + (5 * capped_pressure) / 1000.0);
+  const eccentricity = planet.e || 0;
   const tiltmod = Math.abs(
-    Math.cos((planet.axial_tilt * Math.PI) / 180) *
+    Math.cos((planet.axialTilt * Math.PI) / 180) *
       Math.pow(1 + eccentricity, 2),
   );
-  const daymod = 1 / (200 / planet.day + 1);
-  const max = planet.surf_temp + Math.sqrt(planet.surf_temp) * 10;
-  const min = planet.surf_temp / Math.sqrt(planet.day + 24);
+  const daymod = 1 / (200 / planet.dayLength + 1);
+  const max = planet.surfaceTemp + Math.sqrt(planet.surfaceTemp) * 10;
+  const min = planet.surfaceTemp / Math.sqrt(planet.dayLength + 24);
 
   const mh = Math.pow(1 + daymod, pressmod);
   const ml = Math.pow(1 - daymod, pressmod);
-  const hi = mh * planet.surf_temp;
-  const lo = Math.max(min, ml * planet.surf_temp);
+  const hi = mh * planet.surfaceTemp;
+  const lo = Math.max(min, ml * planet.surfaceTemp);
   const sh = hi + Math.pow((100 + hi) * tiltmod, Math.sqrt(ppmod));
   const wl = Math.max(0, lo - Math.pow((150 + lo) * tiltmod, Math.sqrt(ppmod)));
 
-  planet.high_temp = soft(hi, max, min);
-  planet.low_temp = soft(lo, max, min);
-  planet.max_temp = soft(sh, max, min);
-  planet.min_temp = soft(wl, max, min);
+  return {
+    high: soft(hi, max, min),
+    low: soft(lo, max, min),
+    max: soft(sh, max, min),
+    min: soft(wl, max, min),
+  };
 };
-
-/**
- * Gas Table (ChemTable) for Atmospheric Composition
- * Based on StarGen implementation and Dole's "Habitable Planets for Man"
- *
- * This table defines properties for atmospheric gases including:
- * - Atomic/molecular number
- * - Symbol
- * - Name
- * - Molecular weight
- * - Melting point (Kelvin)
- * - Boiling point (Kelvin)
- * - Density (g/cc)
- * - Abundance (relative to Earth = 1.0)
- * - Reactivity factor
- * - Maximum inspired partial pressure (millibars) - for breathability
- */
 
 // Breathability constants
 export const NONE = 0;
@@ -926,7 +920,7 @@ export const UNBREATHABLE = 2;
 export const POISONOUS = 3;
 
 /**
- * Gas definition structure
+ * Gas definition structure (ChemTable)
  * @typedef {Object} Gas
  * @property {number} num - Atomic number (or special number for molecules)
  * @property {string} symbol - Chemical symbol
@@ -1301,4 +1295,62 @@ export const generateAtmosphere = (planet) => {
   }
 
   return { atmosphere, gases };
+};
+
+export const calculatePlanetType = (planet) => {
+  const earthMass = planet.earthMass;
+  const surfaceTemp = planet.surfaceTemp;
+  const surfacePressure = planet.surfacePressure;
+
+  // Gas giants - planets that retained significant gas during formation
+  if (planet.isGasGiant) {
+    // Jovian: Large gas giants (>100 Earth masses, roughly >0.3 Jupiter masses)
+    if (earthMass >= 100) {
+      return "Jovian";
+    }
+    // Sub-Jovian: Smaller gas giants (between critical mass and 100 Earth masses)
+    else {
+      return "Sub-Jovian";
+    }
+  }
+  // Terrestrial planets - rocky planets
+  else {
+    // Check if planet is in the "ice zone" (beyond frost line, very cold)
+    // Typically beyond ~2.7 AU for a Sun-like star, or where water ice is stable
+    const stellarLuminosity = planet.system.luminosity || 1;
+    const frostLine = 2.7 * Math.sqrt(stellarLuminosity);
+
+    // Terrestrial: Earth-like or Venus-like conditions
+    // Significant atmosphere, possibility of liquid water or thick atmosphere
+    if (
+      surfacePressure > 250 && // Substantial atmosphere (>0.25 bar)
+      surfaceTemp > C.FREEZING_POINT_OF_WATER - 30 &&
+      surfaceTemp < 700 && // Not too hot (below typical Venus-like runaway)
+      earthMass > 0.3 // Not too small
+    ) {
+      return "Terrestrial";
+    }
+    // Martian: Thin atmosphere, some volatiles, not too cold
+    // Mars-like: thin atmosphere (0.006-0.25 bar)
+    // Can be cold but not in deep freeze (allows for seasonal variation like Mars)
+    else if (
+      surfacePressure >= 0.5 && // Some atmosphere (Mars has ~6 mb)
+      surfacePressure < 250 && // But thin (less than 0.25 bar)
+      surfaceTemp > C.FREEZING_POINT_OF_WATER - 80 && // Not extremely cold (-80C minimum)
+      surfaceTemp < 350 && // Not too hot
+      planet.a < frostLine * 1.5 // Not too far out (within 1.5x frost line)
+    ) {
+      return "Martian";
+    }
+    // Ice planet: Cold, typically beyond frost line, with frozen volatiles
+    // Very cold, low pressure (volatiles frozen out)
+    else if (surfaceTemp < C.FREEZING_POINT_OF_WATER - 30) {
+      return "Ice";
+    }
+    // Rock: Rocky planet with little to no atmosphere or extreme conditions
+    // Either too small to retain atmosphere, too hot, or airless
+    else {
+      return "Rock";
+    }
+  }
 };

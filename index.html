@@ -1122,11 +1122,6 @@
           return val;
         }
 
-        let planetType = planet.isGasGiant ? "Gas Giant" : "Rocky Planet";
-        if (!planet.isGasGiant && planet.surfacePressure > 0) {
-          planetType = "Terrestrial";
-        }
-
         let habitabilityNotes = [];
         if (
           planet.surfaceTempCelsius >= -20 &&
@@ -1142,7 +1137,7 @@
         }
 
         const html = `
-          <h3>Planet ${planetNum} - ${planetType}</h3>
+          <h3>Planet ${planetNum} - ${planet.planetType}</h3>
 
           <div class="section">
             <div class="section-title">Orbital Properties</div>

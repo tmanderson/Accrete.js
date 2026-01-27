@@ -171,73 +171,94 @@ export default class Planetismal {
 
     // Iterative calculation of surface temperature and surface properties
     // Start with initial guesses
-    this.albedo = C.EARTH_ALBEDO;
+    this.albedo = this.isGasGiant ? C.GAS_GIANT_ALBEDO : C.EARTH_ALBEDO;
     this.hydrosphere = 0;
     this.cloudCover = 0;
     this.iceCover = 0;
 
     const initialTemp = Astro.est_temp(rEcosphere, this.a, this.albedo);
 
-    // Iterate to find equilibrium temperature and surface conditions
-    for (let iteration = 0; iteration < 25; iteration++) {
-      const lastWater = this.hydrosphere;
-      const lastClouds = this.cloudCover;
-      const lastIce = this.iceCover;
-      const lastTemp = this.surfaceTemp || initialTemp;
-      const lastAlbedo = this.albedo;
-
-      // Calculate effective temperature with current albedo
+    // Gas giants use a simpler temperature model
+    // They don't have the same greenhouse effect as terrestrial planets
+    if (this.isGasGiant) {
+      // For gas giants, use equilibrium temperature with minimal greenhouse effect
+      // The "surface" is defined at a specific pressure level, not a solid surface
       const effectiveTemp = Astro.eff_temp(rEcosphere, this.a, this.albedo);
 
-      // Calculate greenhouse effect
-      const opticalDepth = Astro.opacity(
-        this.molecularWeightRetained,
-        this.surfacePressure,
-      );
-      const greenhouseRise = Astro.green_rise(
-        opticalDepth,
-        effectiveTemp,
-        this.surfacePressure,
+      // Gas giants have some internal heat and atmospheric effects
+      // but not the runaway greenhouse of the terrestrial formula
+      // Add a small temperature boost for thick atmospheres (typically 10-30K)
+      const pressureBoost = Math.min(
+        30,
+        Math.log10(this.surfacePressure / 1000) * 5,
       );
 
-      // Update surface temperature
-      this.surfaceTemp = effectiveTemp + greenhouseRise;
+      this.surfaceTemp = effectiveTemp + Math.max(0, pressureBoost);
+      this.hydrosphere = 0;
+      this.cloudCover = 1.0; // Gas giants are typically very cloudy
+      this.iceCover = 0;
+    } else {
+      // Terrestrial planets: iterate to find equilibrium temperature and surface conditions
+      for (let iteration = 0; iteration < 25; iteration++) {
+        const lastWater = this.hydrosphere;
+        const lastClouds = this.cloudCover;
+        const lastIce = this.iceCover;
+        const lastTemp = this.surfaceTemp || initialTemp;
+        const lastAlbedo = this.albedo;
 
-      // Calculate surface properties
-      this.hydrosphere = Astro.hydro_fraction(
-        this.volatileGasInventory,
-        this.radius,
-      );
+        // Calculate effective temperature with current albedo
+        const effectiveTemp = Astro.eff_temp(rEcosphere, this.a, this.albedo);
 
-      this.cloudCover = Astro.cloud_fraction(
-        this.surfaceTemp,
-        this.molecularWeightRetained,
-        this.radius,
-        this.hydrosphere,
-      );
+        // Calculate greenhouse effect
+        const opticalDepth = Astro.opacity(
+          this.molecularWeightRetained,
+          this.surfacePressure,
+        );
+        const greenhouseRise = Astro.green_rise(
+          opticalDepth,
+          effectiveTemp,
+          this.surfacePressure,
+        );
 
-      this.iceCover = Astro.ice_fraction(this.hydrosphere, this.surfaceTemp);
+        // Update surface temperature
+        this.surfaceTemp = effectiveTemp + greenhouseRise;
 
-      // Recalculate albedo based on surface composition
-      this.albedo = Astro.planet_albedo(
-        this.hydrosphere,
-        this.cloudCover,
-        this.iceCover,
-        this.surfacePressure,
-      );
+        // Calculate surface properties
+        this.hydrosphere = Astro.hydro_fraction(
+          this.volatileGasInventory,
+          this.radius,
+        );
 
-      // Average with previous values to smooth convergence
-      if (iteration > 0) {
-        this.hydrosphere = (this.hydrosphere + lastWater * 2) / 3;
-        this.cloudCover = (this.cloudCover + lastClouds * 2) / 3;
-        this.iceCover = (this.iceCover + lastIce * 2) / 3;
-        this.albedo = (this.albedo + lastAlbedo * 2) / 3;
-        this.surfaceTemp = (this.surfaceTemp + lastTemp * 2) / 3;
-      }
+        this.cloudCover = Astro.cloud_fraction(
+          this.surfaceTemp,
+          this.molecularWeightRetained,
+          this.radius,
+          this.hydrosphere,
+        );
 
-      // Check for convergence
-      if (Math.abs(this.surfaceTemp - lastTemp) < 0.25) {
-        break;
+        this.iceCover = Astro.ice_fraction(this.hydrosphere, this.surfaceTemp);
+
+        // Recalculate albedo based on surface composition
+        this.albedo = Astro.planet_albedo(
+          this.hydrosphere,
+          this.cloudCover,
+          this.iceCover,
+          this.surfacePressure,
+        );
+
+        // Average with previous values to smooth convergence
+        if (iteration > 0) {
+          this.hydrosphere = (this.hydrosphere + lastWater * 2) / 3;
+          this.cloudCover = (this.cloudCover + lastClouds * 2) / 3;
+          this.iceCover = (this.iceCover + lastIce * 2) / 3;
+          this.albedo = (this.albedo + lastAlbedo * 2) / 3;
+          this.surfaceTemp = (this.surfaceTemp + lastTemp * 2) / 3;
+        }
+
+        // Check for convergence
+        if (Math.abs(this.surfaceTemp - lastTemp) < 0.25) {
+          break;
+        }
       }
     }
 
@@ -299,6 +320,9 @@ export default class Planetismal {
     // Calculate breathability based on atmospheric composition
     this.calculateBreathability();
 
+    // Classify planet type based on all calculated properties
+    this.calculatePlanetType();
+
     // Mark as calculated
     this.starGenCalculated = true;
 
@@ -306,28 +330,7 @@ export default class Planetismal {
   };
 
   calculateTemperatureRanges = () => {
-    // Use Astro.js set_temp_range function
-    // Create planet object in the format expected by set_temp_range
-    const planetData = {
-      surf_temp: this.surfaceTemp,
-      high_temp: 0,
-      low_temp: 0,
-      max_temp: 0,
-      min_temp: 0,
-      surf_pressure: this.surfacePressure,
-      day: this.dayLength,
-      axial_tilt: this.axialTilt,
-      eccentricity: this.e,
-    };
-
-    // Call the Astro.js function
-    Astro.set_temp_range(planetData);
-
-    // Map results back to this object
-    this.highTemp = planetData.high_temp;
-    this.lowTemp = planetData.low_temp;
-    this.maxTemp = planetData.max_temp;
-    this.minTemp = planetData.min_temp;
+    this.temps = Astro.calculateTempRange(this);
   };
 
   /**
@@ -371,6 +374,14 @@ export default class Planetismal {
     this.breathabilityCode = breathabilityCode;
   };
 
+  /**
+   * Classify planet type based on mass, composition, and conditions
+   * Types: Jovian, Sub-Jovian, Terrestrial, Martian, Ice, Rock
+   */
+  calculatePlanetType = () => {
+    this.planetType = Astro.calculatePlanetType(this);
+  };
+
   toJSON = () => {
     // Calculate StarGen properties if not already done
     if (!this.starGenCalculated) {
@@ -404,6 +415,9 @@ export default class Planetismal {
       earthMass: this.earthMass,
       isGasGiant: this.isGasGiant,
 
+      // Planet classification
+      planetType: this.planetType,
+
       // StarGen properties
       radius: this.radius,
       density: this.density,
@@ -436,14 +450,14 @@ export default class Planetismal {
       dayLength: this.dayLength,
 
       // Temperature ranges
-      highTemp: this.highTemp,
-      lowTemp: this.lowTemp,
-      maxTemp: this.maxTemp,
-      minTemp: this.minTemp,
-      highTempCelsius: this.highTemp - C.FREEZING_POINT_OF_WATER,
-      lowTempCelsius: this.lowTemp - C.FREEZING_POINT_OF_WATER,
-      maxTempCelsius: this.maxTemp - C.FREEZING_POINT_OF_WATER,
-      minTempCelsius: this.minTemp - C.FREEZING_POINT_OF_WATER,
+      highTemp: this.temps.high,
+      lowTemp: this.temps.low,
+      maxTemp: this.temps.max,
+      minTemp: this.temps.min,
+      highTempCelsius: this.temps.high - C.FREEZING_POINT_OF_WATER,
+      lowTempCelsius: this.temps.low - C.FREEZING_POINT_OF_WATER,
+      maxTempCelsius: this.temps.max - C.FREEZING_POINT_OF_WATER,
+      minTempCelsius: this.temps.min - C.FREEZING_POINT_OF_WATER,
 
       // Breathability
       breathability: this.breathability,
